@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, EmotionTag } from "@/components/ui";
 import type { EmotionTone } from "@/lib/placeholder-data";
@@ -13,6 +13,27 @@ import {
 type MovieOption = {
   id: string;
   title: string;
+};
+
+type TmdbSearchResult = {
+  tmdb_id: number;
+  title: string;
+  original_title: string | null;
+  overview: string | null;
+  poster_url: string | null;
+  release_date: string | null;
+  genres: string[];
+};
+
+type MovieUpsertResult = {
+  movie?: {
+    id: string;
+    slug: string | null;
+    title: string;
+    tmdb_id: number;
+  };
+  message?: string;
+  detail?: string;
 };
 
 type EmotionOption = {
@@ -54,6 +75,18 @@ function getEmotionTone(emotionName: string): EmotionTone {
   return emotionToneByName[emotionName] ?? "warm";
 }
 
+function getReleaseYear(releaseDate: string | null) {
+  return releaseDate?.slice(0, 4) || "개봉 연도 미정";
+}
+
+function getOverviewPreview(overview: string | null) {
+  if (!overview) {
+    return "아직 줄거리 소개가 준비되지 않았어요.";
+  }
+
+  return overview.length > 110 ? `${overview.slice(0, 110)}...` : overview;
+}
+
 export function ImpressionForm() {
   const router = useRouter();
   const isSupabaseConfigured = hasSupabaseConfig();
@@ -74,6 +107,16 @@ export function ImpressionForm() {
   );
   const [movieSelectionMessage, setMovieSelectionMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [movieSearchQuery, setMovieSearchQuery] = useState("");
+  const [movieSearchResults, setMovieSearchResults] = useState<
+    TmdbSearchResult[]
+  >([]);
+  const [hasSearchedMovies, setHasSearchedMovies] = useState(false);
+  const [isSearchingMovies, setIsSearchingMovies] = useState(false);
+  const [selectingTmdbMovieId, setSelectingTmdbMovieId] = useState<
+    number | null
+  >(null);
+  const [movieSearchError, setMovieSearchError] = useState("");
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -156,6 +199,114 @@ export function ImpressionForm() {
         ? current.filter((item) => item !== emotionId)
         : [...current, emotionId],
     );
+  }
+
+  async function handleMovieSearch() {
+    const trimmedQuery = movieSearchQuery.trim();
+    setMovieSearchError("");
+    setSuccessMessage("");
+
+    if (!trimmedQuery) {
+      setMovieSearchResults([]);
+      setHasSearchedMovies(false);
+      return;
+    }
+
+    setIsSearchingMovies(true);
+    setHasSearchedMovies(true);
+
+    try {
+      const response = await fetch(
+        `/api/tmdb/search?q=${encodeURIComponent(trimmedQuery)}`,
+      );
+      const data = (await response.json()) as {
+        results?: TmdbSearchResult[];
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.message || "영화를 검색하는 중 문제가 생겼어요.");
+      }
+
+      setMovieSearchResults(data.results ?? []);
+    } catch (error) {
+      console.error("TMDb impression movie search failed", error);
+      setMovieSearchResults([]);
+      setMovieSearchError("영화를 검색하는 중 문제가 생겼어요.");
+    } finally {
+      setIsSearchingMovies(false);
+    }
+  }
+
+  function handleMovieSearchKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+  ) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void handleMovieSearch();
+    }
+  }
+
+  async function handleSelectSearchedMovie(movie: TmdbSearchResult) {
+    setSelectingTmdbMovieId(movie.tmdb_id);
+    setMovieSearchError("");
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const response = await fetch("/api/movies/upsert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tmdb_id: movie.tmdb_id }),
+      });
+      const data = (await response.json()) as MovieUpsertResult;
+
+      if (!response.ok || !data.movie?.id) {
+        console.error("Impression movie upsert response failed", {
+          status: response.status,
+          payload: data,
+        });
+
+        throw new Error(
+          data.message ||
+            data.detail ||
+            "영화 정보를 저장하는 중 문제가 생겼어요.",
+        );
+      }
+
+      const selectedMovie = {
+        id: data.movie.id,
+        title: data.movie.title || movie.title,
+      };
+
+      setMovies((currentMovies) => {
+        const existingMovie = currentMovies.find(
+          (item) => item.id === selectedMovie.id,
+        );
+
+        if (existingMovie) {
+          return currentMovies.map((item) =>
+            item.id === selectedMovie.id ? selectedMovie : item,
+          );
+        }
+
+        return [selectedMovie, ...currentMovies];
+      });
+      setSelectedMovieId(selectedMovie.id);
+      setMovieSelectionMessage(
+        `"${selectedMovie.title}"을 감상할 영화로 선택했어요.`,
+      );
+      setMovieSearchQuery("");
+      setMovieSearchResults([]);
+      setHasSearchedMovies(false);
+    } catch (error) {
+      console.error("Impression movie upsert failed", error);
+      setMovieSearchError("영화 정보를 저장하는 중 문제가 생겼어요.");
+    } finally {
+      setSelectingTmdbMovieId(null);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -269,6 +420,8 @@ export function ImpressionForm() {
     }, 900);
   }
 
+  const selectedMovie = movies.find((movie) => movie.id === selectedMovieId);
+
   return (
     <Card className="mt-10 max-w-4xl p-6 sm:p-8">
       <form className="space-y-9" onSubmit={handleSubmit}>
@@ -315,6 +468,112 @@ export function ImpressionForm() {
               {movieSelectionMessage}
             </p>
           ) : null}
+          {selectedMovie ? (
+            <div className="mt-4 rounded-lg border border-[#f0a15f]/20 bg-[#f0a15f]/10 px-4 py-3">
+              <p className="text-xs font-medium text-[#f2b482]">
+                선택된 영화
+              </p>
+              <p className="mt-1 text-base font-semibold text-[#fff7ea]">
+                {selectedMovie.title}
+              </p>
+            </div>
+          ) : null}
+
+          <div className="mt-5 rounded-lg border border-[#fff7ea]/10 bg-[#fff7ea]/5 p-4">
+            <p className="text-sm font-medium text-[#f2b482]">
+              목록에 없다면 영화 제목으로 찾아보세요
+            </p>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+              <label className="sr-only" htmlFor="tmdb-movie-search">
+                기록할 영화 검색
+              </label>
+              <input
+                id="tmdb-movie-search"
+                type="search"
+                value={movieSearchQuery}
+                onChange={(event) => setMovieSearchQuery(event.target.value)}
+                onKeyDown={handleMovieSearchKeyDown}
+                placeholder="기록할 영화를 검색해보세요"
+                className="min-h-12 flex-1 rounded-full border border-[#fff7ea]/12 bg-[#12100f] px-5 py-3 text-[#fff7ea] outline-none transition placeholder:text-[#c9ad96]/70 focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isSearchingMovies}
+                onClick={() => void handleMovieSearch()}
+                className="shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSearchingMovies ? "검색 중..." : "영화 찾기"}
+              </Button>
+            </div>
+
+            {isSearchingMovies ? (
+              <p className="mt-4 text-sm leading-6 text-[#c9ad96]">
+                영화를 검색하는 중이에요.
+              </p>
+            ) : null}
+
+            {movieSearchError ? (
+              <p className="mt-4 rounded-lg border border-[#f4c7d8]/24 bg-[#f4c7d8]/10 px-4 py-3 text-sm font-medium leading-6 text-[#f4c7d8]">
+                {movieSearchError}
+              </p>
+            ) : null}
+
+            {hasSearchedMovies &&
+            !isSearchingMovies &&
+            movieSearchResults.length === 0 &&
+            !movieSearchError ? (
+              <p className="mt-4 rounded-lg border border-dashed border-[#fff7ea]/14 bg-[#12100f]/36 px-4 py-5 text-center text-sm leading-6 text-[#c9ad96]">
+                검색 결과가 없어요. 다른 제목으로 찾아볼까요?
+              </p>
+            ) : null}
+
+            {movieSearchResults.length > 0 ? (
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {movieSearchResults.map((movie) => (
+                  <article
+                    key={movie.tmdb_id}
+                    className="flex overflow-hidden rounded-lg border border-[#fff7ea]/10 bg-[#12100f]/48"
+                  >
+                    <div
+                      aria-label={`${movie.title} 포스터`}
+                      className="min-h-36 w-24 shrink-0 bg-[linear-gradient(145deg,rgba(240,161,95,0.24),rgba(244,199,216,0.12),rgba(18,16,15,0.88))] bg-cover bg-center"
+                      role="img"
+                      style={
+                        movie.poster_url
+                          ? { backgroundImage: `url(${movie.poster_url})` }
+                          : undefined
+                      }
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col p-4">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-base font-semibold text-[#fff7ea]">
+                          {movie.title}
+                        </h3>
+                        <p className="mt-1 text-sm text-[#f2b482]">
+                          {getReleaseYear(movie.release_date)}
+                        </p>
+                      </div>
+                      <p className="mt-3 flex-1 text-sm leading-6 text-[#e7d4c0]">
+                        {getOverviewPreview(movie.overview)}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={selectingTmdbMovieId === movie.tmdb_id}
+                        onClick={() => void handleSelectSearchedMovie(movie)}
+                        className="mt-4 min-h-10 px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {selectingTmdbMovieId === movie.tmdb_id
+                          ? "선택 중..."
+                          : "이 영화 선택하기"}
+                      </Button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <fieldset>
@@ -458,7 +717,7 @@ export function ImpressionForm() {
             disabled={
               isLoadingOptions ||
               isSubmitting ||
-              movies.length === 0 ||
+              !selectedMovieId ||
               emotions.length === 0
             }
           >
