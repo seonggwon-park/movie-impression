@@ -72,6 +72,7 @@ export function ImpressionForm() {
   const [errorMessage, setErrorMessage] = useState(
     isSupabaseConfigured ? "" : missingSupabaseEnvMessage,
   );
+  const [movieSelectionMessage, setMovieSelectionMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
@@ -132,6 +133,11 @@ export function ImpressionForm() {
       setMovies(loadedMovies);
       setEmotions(loadedEmotions);
       setSelectedMovieId(requestedMovie?.id ?? loadedMovies[0]?.id ?? "");
+      setMovieSelectionMessage(
+        requestedMovieId && !requestedMovie
+          ? "선택한 영화를 찾을 수 없어 직접 선택해주세요."
+          : "",
+      );
       setIsLoadingOptions(false);
     }
 
@@ -277,7 +283,10 @@ export function ImpressionForm() {
             id="movie"
             name="movie"
             value={selectedMovieId}
-            onChange={(event) => setSelectedMovieId(event.target.value)}
+            onChange={(event) => {
+              setSelectedMovieId(event.target.value);
+              setMovieSelectionMessage("");
+            }}
             disabled={isLoadingOptions || movies.length === 0}
             className="mt-3 w-full rounded-lg border border-[#fff7ea]/12 bg-[#12100f] px-4 py-3 text-[#fff7ea] outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
           >
@@ -299,6 +308,11 @@ export function ImpressionForm() {
             <p className="mt-3 text-sm leading-6 text-[#c9ad96]">
               아직 선택할 수 있는 영화가 없어요. Supabase movies 테이블의
               seed 데이터를 확인해주세요.
+            </p>
+          ) : null}
+          {movieSelectionMessage ? (
+            <p className="mt-3 rounded-lg border border-[#f0a15f]/20 bg-[#f0a15f]/10 px-4 py-3 text-sm leading-6 text-[#ffd3a3]">
+              {movieSelectionMessage}
             </p>
           ) : null}
         </div>
