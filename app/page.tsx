@@ -1,63 +1,18 @@
 import Image from "next/image";
 import {
-  Button,
+  ButtonLink,
   Card,
   EmotionTag,
   PageContainer,
   SectionHeader,
 } from "@/components/ui";
+import {
+  emotionOptions,
+  featuredImpressions,
+  placeholderMovies,
+} from "@/lib/placeholder-data";
 
-const emotionTags = [
-  { label: "먹먹함", tone: "warm" },
-  { label: "설렘", tone: "rose" },
-  { label: "위로됨", tone: "violet" },
-  { label: "통쾌함", tone: "warm" },
-  { label: "찝찝함", tone: "violet" },
-  { label: "압도됨", tone: "rose" },
-  { label: "여운 남음", tone: "warm" },
-] as const;
-
-const featuredImpressions = [
-  {
-    movieTitle: "괴물",
-    emotion: "먹먹함",
-    impression: "좋은 영화라기보다 오래 마음에 남는 영화였어요.",
-  },
-  {
-    movieTitle: "라라랜드",
-    emotion: "설렘",
-    impression: "끝난 뒤에도 음악이 계속 남아 있었어요.",
-  },
-  {
-    movieTitle: "듄: 파트2",
-    emotion: "압도됨",
-    impression: "극장에서 봐야 하는 이유를 다시 느꼈어요.",
-  },
-] as const;
-
-const popularMovies = [
-  {
-    title: "파묘",
-    year: "2024",
-    emotion: "찝찝함",
-    description: "상영관을 나와서도 장면의 온도가 쉽게 식지 않는 영화.",
-    impressionCount: 182,
-  },
-  {
-    title: "인사이드 아웃 2",
-    year: "2024",
-    emotion: "위로됨",
-    description: "복잡한 마음을 조금 더 다정하게 바라보게 만드는 이야기.",
-    impressionCount: 146,
-  },
-  {
-    title: "너의 이름은.",
-    year: "2016",
-    emotion: "여운 남음",
-    description: "오래 지난 뒤에도 어떤 빛과 음악으로 다시 떠오르는 영화.",
-    impressionCount: 129,
-  },
-] as const;
+const popularMovies = placeholderMovies.slice(0, 3);
 
 export default function Home() {
   return (
@@ -85,8 +40,10 @@ export default function Home() {
             />
 
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-              <Button>감상 남기기</Button>
-              <Button variant="secondary">요즘 영화 보기</Button>
+              <ButtonLink href="/impressions/new">감상 남기기</ButtonLink>
+              <ButtonLink href="/movies" variant="secondary">
+                요즘 영화 보기
+              </ButtonLink>
             </div>
           </div>
         </PageContainer>
@@ -100,8 +57,8 @@ export default function Home() {
         />
 
         <div className="mt-10 flex flex-wrap gap-3">
-          {emotionTags.map((emotion) => (
-            <EmotionTag key={emotion.label} tone={emotion.tone}>
+          {emotionOptions.map((emotion) => (
+            <EmotionTag as="span" key={emotion.label} tone={emotion.tone}>
               {emotion.label}
             </EmotionTag>
           ))}
@@ -122,7 +79,7 @@ export default function Home() {
                 <h3 className="text-xl font-semibold text-[#fff7ea]">
                   {item.movieTitle}
                 </h3>
-                <EmotionTag className="shrink-0" tone="warm">
+                <EmotionTag as="span" className="shrink-0" tone="warm">
                   {item.emotion}
                 </EmotionTag>
               </div>
@@ -145,16 +102,18 @@ export default function Home() {
           {popularMovies.map((movie) => (
             <Card key={movie.title} className="flex h-full flex-col">
               <div>
-                <p className="text-sm text-[#c9ad96]">{movie.year}</p>
+                <p className="text-sm text-[#c9ad96]">{movie.releaseYear}</p>
                 <h3 className="mt-2 text-2xl font-semibold text-[#fff7ea]">
                   {movie.title}
                 </h3>
               </div>
               <div className="mt-5">
-                <EmotionTag tone="rose">{movie.emotion}</EmotionTag>
+                <EmotionTag as="span" tone={movie.emotionTone}>
+                  {movie.mainEmotion}
+                </EmotionTag>
               </div>
               <p className="mt-6 flex-1 text-base leading-7 text-[#e7d4c0]">
-                {movie.description}
+                {movie.shortDescription}
               </p>
               <p className="mt-8 text-sm font-medium text-[#f2b482]">
                 감상 {movie.impressionCount.toLocaleString("ko-KR")}개
@@ -171,7 +130,9 @@ export default function Home() {
               긴 리뷰가 아니어도 괜찮아요. 오늘 마음에 남은 감정 하나만
               남겨보세요.
             </p>
-            <Button className="w-full sm:w-auto">첫 감상 남기기</Button>
+            <ButtonLink href="/impressions/new" className="w-full sm:w-auto">
+              첫 감상 남기기
+            </ButtonLink>
           </div>
         </Card>
       </PageContainer>

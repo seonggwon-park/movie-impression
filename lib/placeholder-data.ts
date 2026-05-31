@@ -1,0 +1,197 @@
+export type EmotionTone = "warm" | "rose" | "violet";
+
+export type EmotionOption = {
+  label: string;
+  tone: EmotionTone;
+};
+
+export type MovieImpression = {
+  author: string;
+  emotion: string;
+  note: string;
+  date: string;
+};
+
+export type Movie = {
+  id: string;
+  slug: string;
+  title: string;
+  releaseYear: string;
+  genre: string;
+  runningTime: string;
+  director: string;
+  mainEmotion: string;
+  emotionTone: EmotionTone;
+  shortDescription: string;
+  synopsis: string;
+  impressionCount: number;
+  emotionDistribution: Array<{
+    emotion: string;
+    percent: number;
+    tone: EmotionTone;
+  }>;
+  impressions: MovieImpression[];
+};
+
+export const emotionOptions = [
+  { label: "먹먹함", tone: "warm" },
+  { label: "설렘", tone: "rose" },
+  { label: "위로됨", tone: "violet" },
+  { label: "통쾌함", tone: "warm" },
+  { label: "찝찝함", tone: "violet" },
+  { label: "압도됨", tone: "rose" },
+  { label: "여운 남음", tone: "warm" },
+] satisfies EmotionOption[];
+
+export const featuredImpressions = [
+  {
+    movieTitle: "괴물",
+    emotion: "먹먹함",
+    impression: "좋은 영화라기보다 오래 마음에 남는 영화였어요.",
+  },
+  {
+    movieTitle: "라라랜드",
+    emotion: "설렘",
+    impression: "끝난 뒤에도 음악이 계속 남아 있었어요.",
+  },
+  {
+    movieTitle: "듄: 파트2",
+    emotion: "압도됨",
+    impression: "극장에서 봐야 하는 이유를 다시 느꼈어요.",
+  },
+] as const;
+
+export const placeholderMovies = [
+  {
+    id: "1",
+    slug: "pamyo",
+    title: "파묘",
+    releaseYear: "2024",
+    genre: "미스터리",
+    runningTime: "134분",
+    director: "장재현",
+    mainEmotion: "찝찝함",
+    emotionTone: "violet",
+    shortDescription: "상영관을 나와서도 장면의 온도가 쉽게 식지 않는 영화.",
+    synopsis:
+      "오래 묻혀 있던 이야기가 천천히 드러나며, 낯선 공기와 불길한 감정을 남깁니다.",
+    impressionCount: 182,
+    emotionDistribution: [
+      { emotion: "찝찝함", percent: 38, tone: "violet" },
+      { emotion: "압도됨", percent: 24, tone: "rose" },
+      { emotion: "여운 남음", percent: 21, tone: "warm" },
+    ],
+    impressions: [
+      {
+        author: "해질녘",
+        emotion: "찝찝함",
+        note: "무섭다기보다 오래 남는 불편함이 있었어요.",
+        date: "2026.05.18",
+      },
+      {
+        author: "필름노트",
+        emotion: "압도됨",
+        note: "소리와 표정만으로도 극장의 공기가 바뀌는 느낌.",
+        date: "2026.05.20",
+      },
+    ],
+  },
+  {
+    id: "2",
+    slug: "inside-out-2",
+    title: "인사이드 아웃 2",
+    releaseYear: "2024",
+    genre: "애니메이션",
+    runningTime: "96분",
+    director: "켈시 만",
+    mainEmotion: "위로됨",
+    emotionTone: "violet",
+    shortDescription: "복잡한 마음을 조금 더 다정하게 바라보게 만드는 이야기.",
+    synopsis:
+      "새로운 감정들이 찾아오며 흔들리는 마음을 통해, 성장의 어색함과 다정함을 함께 보여줍니다.",
+    impressionCount: 146,
+    emotionDistribution: [
+      { emotion: "위로됨", percent: 42, tone: "violet" },
+      { emotion: "먹먹함", percent: 23, tone: "warm" },
+      { emotion: "설렘", percent: 18, tone: "rose" },
+    ],
+    impressions: [
+      {
+        author: "하루",
+        emotion: "위로됨",
+        note: "내 마음을 조금 덜 미워해도 되겠다고 느꼈어요.",
+        date: "2026.05.22",
+      },
+      {
+        author: "작은관객",
+        emotion: "먹먹함",
+        note: "가볍게 보러 갔다가 예상보다 오래 생각났어요.",
+        date: "2026.05.24",
+      },
+    ],
+  },
+  {
+    id: "3",
+    slug: "your-name",
+    title: "너의 이름은.",
+    releaseYear: "2016",
+    genre: "로맨스",
+    runningTime: "106분",
+    director: "신카이 마코토",
+    mainEmotion: "여운 남음",
+    emotionTone: "warm",
+    shortDescription: "오래 지난 뒤에도 어떤 빛과 음악으로 다시 떠오르는 영화.",
+    synopsis:
+      "서로 다른 시간을 지나 마주하려는 두 사람의 감정이, 빛과 음악처럼 오래 남습니다.",
+    impressionCount: 129,
+    emotionDistribution: [
+      { emotion: "여운 남음", percent: 44, tone: "warm" },
+      { emotion: "설렘", percent: 29, tone: "rose" },
+      { emotion: "먹먹함", percent: 16, tone: "violet" },
+    ],
+    impressions: [
+      {
+        author: "여름밤",
+        emotion: "여운 남음",
+        note: "마지막 장면이 오래도록 빛처럼 남았어요.",
+        date: "2026.05.25",
+      },
+      {
+        author: "밤의관객",
+        emotion: "설렘",
+        note: "다시 보고 싶은 마음이 먼저 들었어요.",
+        date: "2026.05.27",
+      },
+    ],
+  },
+] satisfies Movie[];
+
+export const myImpressions = [
+  {
+    id: "mine-1",
+    movieTitle: "괴물",
+    emotion: "먹먹함",
+    note: "말로 설명하기 어려운 장면들이 며칠 동안 남아 있었어요.",
+    watchedAt: "2026.05.19",
+  },
+  {
+    id: "mine-2",
+    movieTitle: "라라랜드",
+    emotion: "설렘",
+    note: "결말보다 음악이 먼저 떠오르는 영화.",
+    watchedAt: "2026.05.21",
+  },
+  {
+    id: "mine-3",
+    movieTitle: "듄: 파트2",
+    emotion: "압도됨",
+    note: "큰 화면이 감정의 일부가 되는 경험이었어요.",
+    watchedAt: "2026.05.28",
+  },
+] as const;
+
+export function getMovieByIdOrSlug(identifier: string) {
+  return placeholderMovies.find(
+    (movie) => movie.id === identifier || movie.slug === identifier,
+  );
+}

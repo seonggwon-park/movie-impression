@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "./class-names";
 
@@ -14,6 +15,18 @@ type ButtonProps = ComponentPropsWithoutRef<"button"> & {
   variant?: ButtonVariant;
 };
 
+type ButtonLinkProps = ComponentPropsWithoutRef<typeof Link> & {
+  variant?: ButtonVariant;
+};
+
+function getButtonClassName(variant: ButtonVariant, className?: string) {
+  return cn(
+    "inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-base font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#12100f]",
+    buttonVariants[variant],
+    className,
+  );
+}
+
 export function Button({
   className,
   type = "button",
@@ -23,11 +36,20 @@ export function Button({
   return (
     <button
       type={type}
-      className={cn(
-        "inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-base font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#12100f]",
-        buttonVariants[variant],
-        className,
-      )}
+      className={getButtonClassName(variant, className)}
+      {...props}
+    />
+  );
+}
+
+export function ButtonLink({
+  className,
+  variant = "primary",
+  ...props
+}: ButtonLinkProps) {
+  return (
+    <Link
+      className={getButtonClassName(variant, className)}
       {...props}
     />
   );
