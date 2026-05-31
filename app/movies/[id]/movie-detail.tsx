@@ -527,6 +527,10 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         );
       }
 
+      const bookingLinks = (
+        (bookingLinksResult.data ?? []) as SupabaseBookingLinkRow[]
+      ).map(normalizeBookingLink);
+
       setDetail({
         movie,
         impressions: ((impressionsResult.data ?? []) as SupabaseImpressionRow[])
@@ -535,9 +539,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
           (criticReviewsResult.data ?? []) as SupabaseCriticReviewRow[]
         ).map(normalizeCriticReview),
         bookingLinks:
-          ((bookingLinksResult.data ?? []) as SupabaseBookingLinkRow[]).map(
-            normalizeBookingLink,
-          ) ?? fallbackBookingLinks,
+          bookingLinks.length > 0 ? bookingLinks : fallbackBookingLinks,
         isFallback: false,
       });
       setIsLoading(false);
