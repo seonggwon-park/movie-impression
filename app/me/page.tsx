@@ -1,3 +1,4 @@
+import { AuthGuard } from "@/components/auth/auth-guard";
 import {
   ButtonLink,
   Card,
@@ -104,9 +105,10 @@ export default function MyPage() {
   ];
 
   return (
-    <main className="bg-[#12100f] text-[#fff7ea]">
-      <PageContainer className="py-16 sm:py-24">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)] lg:items-end">
+    <AuthGuard>
+      <main className="bg-[#12100f] text-[#fff7ea]">
+        <PageContainer className="py-16 sm:py-24">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.42fr)] lg:items-end">
           <SectionHeader
             eyebrow="개인 아카이브"
             title="나의 여운"
@@ -299,7 +301,8 @@ export default function MyPage() {
             </ButtonLink>
           </Card>
         )}
-      </PageContainer>
-    </main>
+        </PageContainer>
+      </main>
+    </AuthGuard>
   );
 }

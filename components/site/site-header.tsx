@@ -1,4 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import {
+  getSupabaseBrowserClient,
+  hasSupabaseConfig,
+} from "@/lib/supabase";
 
 const navItems = [
   { href: "/", label: "홈" },
@@ -8,6 +16,52 @@ const navItems = [
 ] as const;
 
 export function SiteHeader() {
+  const router = useRouter();
+  const isSupabaseConfigured = hasSupabaseConfig();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(isSupabaseConfigured);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    let isMounted = true;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (!isMounted) {
+        return;
+      }
+
+      setIsLoggedIn(Boolean(data.user));
+      setIsCheckingAuth(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(Boolean(session?.user));
+      setIsCheckingAuth(false);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [isSupabaseConfigured]);
+
+  async function handleSignOut() {
+    if (!isSupabaseConfigured) {
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    setIsLoggedIn(false);
+    router.refresh();
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-[#fff7ea]/10 bg-[#12100f]/88 backdrop-blur">
       <div className="mx-auto flex w-full flex-col gap-4 px-6 py-4 sm:px-10 lg:flex-row lg:items-center lg:justify-between lg:px-20">
@@ -27,6 +81,22 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+          {isCheckingAuth ? null : isLoggedIn ? (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="rounded-full border border-[#fff7ea]/16 px-4 py-2 text-sm font-medium text-[#e7d4c0] transition hover:bg-[#fff7ea]/8 hover:text-[#fff7ea] focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+            >
+              로그아웃
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-full border border-[#f0a15f]/35 bg-[#f0a15f]/12 px-4 py-2 text-sm font-semibold text-[#ffd3a3] transition hover:border-[#f0a15f]/55 hover:bg-[#f0a15f]/20 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+            >
+              로그인
+            </Link>
+          )}
         </nav>
       </div>
     </header>

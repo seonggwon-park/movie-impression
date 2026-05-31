@@ -11,14 +11,14 @@ Deployed demo: [https://movie-impression-ihvaenxcg-seonggwon-park-s-projects.ver
 - Movie detail page
 - Lightweight impression creation form
 - Personal archive page
+- Basic email/password authentication
 - Placeholder data only
 
-Supabase, TMDb, authentication, and persistent saving are not implemented yet.
+The app still uses placeholder movie and impression data. TMDb integration and persistent impression saving are not implemented yet.
 
 ## Planned Features
 
 - Supabase database
-- Authentication
 - Saving impressions
 - TMDb movie search
 - Real emotion statistics
