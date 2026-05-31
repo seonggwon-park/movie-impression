@@ -44,6 +44,17 @@ export type Movie = {
   criticReviews: CriticReview[];
 };
 
+export type MyImpression = {
+  id: string;
+  movieTitle: string;
+  movieSlug: string;
+  emotions: string[];
+  note: string;
+  longerNote?: string;
+  watchedAt: string;
+  rating?: string;
+};
+
 export const emotionOptions = [
   { label: "먹먹함", tone: "warm" },
   { label: "설렘", tone: "rose" },
@@ -232,26 +243,36 @@ export const placeholderMovies = [
 export const myImpressions = [
   {
     id: "mine-1",
-    movieTitle: "괴물",
-    emotion: "먹먹함",
-    note: "말로 설명하기 어려운 장면들이 며칠 동안 남아 있었어요.",
-    watchedAt: "2026.05.19",
+    movieTitle: "파묘",
+    movieSlug: "pamyo",
+    emotions: ["찝찝함", "압도됨"],
+    note: "무섭다기보다 설명하기 어려운 불편함이 오래 남았어요.",
+    longerNote:
+      "극장을 나와서도 소리와 어둠의 질감이 계속 떠올랐어요. 무언가를 본다기보다 분위기 안에 잠시 들어갔다 나온 기분이었어요.",
+    watchedAt: "2026.05.28",
+    rating: "4.0",
   },
   {
     id: "mine-2",
-    movieTitle: "라라랜드",
-    emotion: "설렘",
-    note: "결말보다 음악이 먼저 떠오르는 영화.",
-    watchedAt: "2026.05.21",
+    movieTitle: "인사이드 아웃 2",
+    movieSlug: "inside-out-2",
+    emotions: ["위로됨", "먹먹함"],
+    note: "내 마음을 조금 덜 미워해도 되겠다고 느꼈어요.",
+    longerNote:
+      "새로운 감정들이 몰려오는 장면이 예상보다 크게 남았어요. 복잡한 마음도 결국 나를 지키려고 온다는 말처럼 느껴졌어요.",
+    watchedAt: "2026.05.24",
+    rating: "4.5",
   },
   {
     id: "mine-3",
-    movieTitle: "듄: 파트2",
-    emotion: "압도됨",
-    note: "큰 화면이 감정의 일부가 되는 경험이었어요.",
-    watchedAt: "2026.05.28",
+    movieTitle: "너의 이름은.",
+    movieSlug: "your-name",
+    emotions: ["여운 남음", "설렘"],
+    note: "마지막 장면이 오래도록 빛처럼 남았어요.",
+    watchedAt: "2026.05.21",
+    rating: "5.0",
   },
-] as const;
+] satisfies MyImpression[];
 
 export function getMovieByIdOrSlug(identifier: string) {
   return placeholderMovies.find(
