@@ -5,17 +5,18 @@ type MovieUpsertPayload = {
   tmdb_id?: unknown;
 };
 
-function createMovieSlug(title: string, releaseDate: string | null, tmdbId: number) {
-  const titlePart = title
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
-  const yearPart = releaseDate?.slice(0, 4);
+function createMovieSlug(tmdbId: number | null, fallbackId?: string) {
+  if (tmdbId && Number.isSafeInteger(tmdbId) && tmdbId > 0) {
+    return `tmdb-${tmdbId}`;
+  }
 
-  return [titlePart || "movie", yearPart, String(tmdbId)]
-    .filter(Boolean)
-    .join("-");
+  const safeFragment = fallbackId
+    ?.toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 24);
+
+  return `movie-${safeFragment || crypto.randomUUID().slice(0, 8)}`;
 }
 
 function getErrorDetail(error: unknown) {
@@ -55,11 +56,7 @@ export async function POST(request: Request) {
           release_date: tmdbMovie.release_date,
           runtime: tmdbMovie.runtime,
           genres: tmdbMovie.genres,
-          slug: createMovieSlug(
-            tmdbMovie.title,
-            tmdbMovie.release_date,
-            tmdbMovie.tmdb_id,
-          ),
+          slug: createMovieSlug(tmdbMovie.tmdb_id, String(tmdbMovie.tmdb_id)),
         },
         { onConflict: "tmdb_id" },
       )

@@ -1,6 +1,8 @@
 import { placeholderMovies } from "@/lib/placeholder-data";
 import { MovieDetail } from "./movie-detail";
 
+export const dynamic = "force-dynamic";
+
 type MovieDetailPageProps = {
   params: Promise<{
     id: string;
