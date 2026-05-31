@@ -42,6 +42,14 @@ function getLoginPath() {
   return `/login?next=${encodeURIComponent("/impressions/new")}`;
 }
 
+function getRequestedMovieId() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return new URLSearchParams(window.location.search).get("movieId");
+}
+
 function getEmotionTone(emotionName: string): EmotionTone {
   return emotionToneByName[emotionName] ?? "warm";
 }
@@ -116,10 +124,14 @@ export function ImpressionForm() {
 
       const loadedMovies = (moviesResult.data ?? []) as MovieOption[];
       const loadedEmotions = (emotionsResult.data ?? []) as EmotionOption[];
+      const requestedMovieId = getRequestedMovieId();
+      const requestedMovie = loadedMovies.find(
+        (movie) => movie.id === requestedMovieId,
+      );
 
       setMovies(loadedMovies);
       setEmotions(loadedEmotions);
-      setSelectedMovieId(loadedMovies[0]?.id ?? "");
+      setSelectedMovieId(requestedMovie?.id ?? loadedMovies[0]?.id ?? "");
       setIsLoadingOptions(false);
     }
 
