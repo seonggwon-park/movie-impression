@@ -28,8 +28,20 @@ Supabase, TMDb, authentication, and persistent saving are not implemented yet.
 - Next.js App Router
 - TypeScript
 - Tailwind CSS
+- Supabase JavaScript client
 - Vercel
-- Planned: Supabase, TMDb API
+- Planned: Supabase database, authentication, TMDb API
+
+## Supabase Environment Setup
+
+Supabase is configured at the client level, but the current MVP still uses placeholder data. To prepare local environment variables, copy `.env.example` to `.env.local` and fill in your Supabase project values:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+Do not commit `.env.local`; it is already ignored by git.
 
 ## Local Development
 
