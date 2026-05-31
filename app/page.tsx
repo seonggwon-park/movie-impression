@@ -1,65 +1,180 @@
 import Image from "next/image";
+import {
+  Button,
+  Card,
+  EmotionTag,
+  PageContainer,
+  SectionHeader,
+} from "@/components/ui";
+
+const emotionTags = [
+  { label: "먹먹함", tone: "warm" },
+  { label: "설렘", tone: "rose" },
+  { label: "위로됨", tone: "violet" },
+  { label: "통쾌함", tone: "warm" },
+  { label: "찝찝함", tone: "violet" },
+  { label: "압도됨", tone: "rose" },
+  { label: "여운 남음", tone: "warm" },
+] as const;
+
+const featuredImpressions = [
+  {
+    movieTitle: "괴물",
+    emotion: "먹먹함",
+    impression: "좋은 영화라기보다 오래 마음에 남는 영화였어요.",
+  },
+  {
+    movieTitle: "라라랜드",
+    emotion: "설렘",
+    impression: "끝난 뒤에도 음악이 계속 남아 있었어요.",
+  },
+  {
+    movieTitle: "듄: 파트2",
+    emotion: "압도됨",
+    impression: "극장에서 봐야 하는 이유를 다시 느꼈어요.",
+  },
+] as const;
+
+const popularMovies = [
+  {
+    title: "파묘",
+    year: "2024",
+    emotion: "찝찝함",
+    description: "상영관을 나와서도 장면의 온도가 쉽게 식지 않는 영화.",
+    impressionCount: 182,
+  },
+  {
+    title: "인사이드 아웃 2",
+    year: "2024",
+    emotion: "위로됨",
+    description: "복잡한 마음을 조금 더 다정하게 바라보게 만드는 이야기.",
+    impressionCount: 146,
+  },
+  {
+    title: "너의 이름은.",
+    year: "2016",
+    emotion: "여운 남음",
+    description: "오래 지난 뒤에도 어떤 빛과 음악으로 다시 떠오르는 영화.",
+    impressionCount: 129,
+  },
+] as const;
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+    <main className="overflow-hidden bg-[#12100f] text-[#fff7ea]">
+      <section className="relative isolate min-h-svh overflow-hidden">
         <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
+          src="/home-cinema.png"
+          alt=""
+          fill
           priority
+          sizes="100vw"
+          className="absolute inset-0 -z-20 object-cover"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(18,16,15,0.96)_0%,rgba(18,16,15,0.86)_36%,rgba(18,16,15,0.48)_68%,rgba(18,16,15,0.18)_100%)]" />
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(19,18,25,0.2)_0%,rgba(18,16,15,0.44)_75%,rgba(18,16,15,0.92)_100%)]" />
+
+        <PageContainer className="flex min-h-svh items-center py-16">
+          <div className="w-full max-w-3xl">
+            <SectionHeader
+              eyebrow="여운"
+              title="영화가 끝난 뒤, 마음에 남은 장면을 기록하세요."
+              description="별점보다 먼저, 당신에게 남은 감정을 남겨보세요."
+              titleAs="h1"
+              variant="hero"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+              <Button>감상 남기기</Button>
+              <Button variant="secondary">요즘 영화 보기</Button>
+            </div>
+          </div>
+        </PageContainer>
+      </section>
+
+      <PageContainer className="py-20 sm:py-24">
+        <SectionHeader
+          eyebrow="마음에 남은 감정"
+          title="영화를 설명하기 전에, 먼저 감정을 골라보세요."
+          description="평론처럼 완벽하지 않아도 괜찮아요. 그날의 마음에 가까운 단어 하나면 충분해요."
+        />
+
+        <div className="mt-10 flex flex-wrap gap-3">
+          {emotionTags.map((emotion) => (
+            <EmotionTag key={emotion.label} tone={emotion.tone}>
+              {emotion.label}
+            </EmotionTag>
+          ))}
         </div>
-      </main>
-    </div>
+      </PageContainer>
+
+      <PageContainer className="py-20 sm:py-24">
+        <SectionHeader
+          eyebrow="남겨진 감상"
+          title="긴 리뷰 대신, 마음에 남은 한 줄을 모아요."
+          description="좋았다, 별로였다보다 조금 더 개인적인 감상의 조각들."
+        />
+
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
+          {featuredImpressions.map((item) => (
+            <Card key={item.movieTitle} className="flex h-full flex-col">
+              <div className="flex items-start justify-between gap-4">
+                <h3 className="text-xl font-semibold text-[#fff7ea]">
+                  {item.movieTitle}
+                </h3>
+                <EmotionTag className="shrink-0" tone="warm">
+                  {item.emotion}
+                </EmotionTag>
+              </div>
+              <p className="mt-8 text-lg leading-8 text-[#f1ddc9]">
+                “{item.impression}”
+              </p>
+            </Card>
+          ))}
+        </div>
+      </PageContainer>
+
+      <PageContainer className="py-20 sm:py-24">
+        <SectionHeader
+          eyebrow="요즘 남겨진 영화"
+          title="지금 사람들의 마음에 남아 있는 영화들"
+          description="극장 밖으로 이어진 감정의 흐름을 가볍게 둘러보세요."
+        />
+
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
+          {popularMovies.map((movie) => (
+            <Card key={movie.title} className="flex h-full flex-col">
+              <div>
+                <p className="text-sm text-[#c9ad96]">{movie.year}</p>
+                <h3 className="mt-2 text-2xl font-semibold text-[#fff7ea]">
+                  {movie.title}
+                </h3>
+              </div>
+              <div className="mt-5">
+                <EmotionTag tone="rose">{movie.emotion}</EmotionTag>
+              </div>
+              <p className="mt-6 flex-1 text-base leading-7 text-[#e7d4c0]">
+                {movie.description}
+              </p>
+              <p className="mt-8 text-sm font-medium text-[#f2b482]">
+                감상 {movie.impressionCount.toLocaleString("ko-KR")}개
+              </p>
+            </Card>
+          ))}
+        </div>
+      </PageContainer>
+
+      <PageContainer className="pb-24 pt-16 sm:pb-32">
+        <Card className="bg-[#fff7ea]/10 p-8 sm:p-10">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+            <p className="max-w-2xl text-2xl font-semibold leading-10 text-[#fff7ea]">
+              긴 리뷰가 아니어도 괜찮아요. 오늘 마음에 남은 감정 하나만
+              남겨보세요.
+            </p>
+            <Button className="w-full sm:w-auto">첫 감상 남기기</Button>
+          </div>
+        </Card>
+      </PageContainer>
+    </main>
   );
 }
