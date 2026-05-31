@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Button,
   ButtonLink,
   Card,
   EmotionTag,
@@ -197,6 +198,9 @@ export function MyArchive() {
   const [errorMessage, setErrorMessage] = useState(
     isSupabaseConfigured ? "" : missingSupabaseEnvMessage,
   );
+  const [deletingImpressionId, setDeletingImpressionId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -275,6 +279,55 @@ export function MyArchive() {
       isMounted = false;
     };
   }, [isSupabaseConfigured, router]);
+
+  async function handleDeleteImpression(impressionId: string) {
+    const confirmed = window.confirm(
+      "이 감상을 삭제할까요? 삭제한 감상은 되돌릴 수 없어요.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      setErrorMessage(missingSupabaseEnvMessage);
+      return;
+    }
+
+    setErrorMessage("");
+    setDeletingImpressionId(impressionId);
+
+    const supabase = getSupabaseBrowserClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Supabase getUser failed before deleting impression", userError);
+    }
+
+    if (!userData.user) {
+      setDeletingImpressionId(null);
+      router.replace(getLoginPath());
+      return;
+    }
+
+    const { error } = await supabase
+      .from("impressions")
+      .delete()
+      .eq("id", impressionId)
+      .eq("user_id", userData.user.id);
+
+    if (error) {
+      console.error("Supabase impression delete failed", error);
+      setErrorMessage(`감상을 삭제하지 못했어요. ${error.message}`);
+      setDeletingImpressionId(null);
+      return;
+    }
+
+    setImpressions((current) =>
+      current.filter((impression) => impression.id !== impressionId),
+    );
+    setDeletingImpressionId(null);
+  }
 
   const hasImpressions = impressions.length > 0;
   const mostUsedEmotion = getMostUsedEmotion(impressions);
@@ -498,15 +551,39 @@ export function MyArchive() {
                                     <span>별점 {impression.rating}</span>
                                   ) : null}
                                 </div>
-                                {impression.movie.id ? (
+                                <div className="flex flex-wrap gap-3">
                                   <ButtonLink
-                                    href={getMovieHref(impression.movie)}
+                                    href={`/impressions/${impression.id}/edit`}
                                     variant="secondary"
                                     className="px-4 py-2 text-sm"
                                   >
-                                    영화 다시 보기
+                                    수정
                                   </ButtonLink>
-                                ) : null}
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    disabled={
+                                      deletingImpressionId === impression.id
+                                    }
+                                    onClick={() =>
+                                      void handleDeleteImpression(impression.id)
+                                    }
+                                    className="min-h-10 px-4 py-2 text-sm text-[#f4c7d8] disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {deletingImpressionId === impression.id
+                                      ? "삭제 중"
+                                      : "삭제"}
+                                  </Button>
+                                  {impression.movie.id ? (
+                                    <ButtonLink
+                                      href={getMovieHref(impression.movie)}
+                                      variant="secondary"
+                                      className="px-4 py-2 text-sm"
+                                    >
+                                      영화 다시 보기
+                                    </ButtonLink>
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
                           </article>
