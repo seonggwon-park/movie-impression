@@ -10,12 +10,22 @@ export type MovieImpression = {
   emotion: string;
   note: string;
   date: string;
+  rating?: string;
+};
+
+export type CriticReview = {
+  criticName: string;
+  outlet: string;
+  rating?: string;
+  summary: string;
+  sourceUrl: string;
 };
 
 export type Movie = {
   id: string;
   slug: string;
   title: string;
+  originalTitle?: string;
   releaseYear: string;
   genre: string;
   runningTime: string;
@@ -31,6 +41,7 @@ export type Movie = {
     tone: EmotionTone;
   }>;
   impressions: MovieImpression[];
+  criticReviews: CriticReview[];
 };
 
 export const emotionOptions = [
@@ -66,6 +77,7 @@ export const placeholderMovies = [
     id: "1",
     slug: "pamyo",
     title: "파묘",
+    originalTitle: "Exhuma",
     releaseYear: "2024",
     genre: "미스터리",
     runningTime: "134분",
@@ -87,6 +99,7 @@ export const placeholderMovies = [
         emotion: "찝찝함",
         note: "무섭다기보다 오래 남는 불편함이 있었어요.",
         date: "2026.05.18",
+        rating: "4.0",
       },
       {
         author: "필름노트",
@@ -95,11 +108,28 @@ export const placeholderMovies = [
         date: "2026.05.20",
       },
     ],
+    criticReviews: [
+      {
+        criticName: "김혜리",
+        outlet: "씨네21",
+        rating: "★★★☆",
+        summary: "장르의 익숙한 리듬 안에서 한국적인 불길함을 길게 남긴다.",
+        sourceUrl: "https://www.cine21.com/",
+      },
+      {
+        criticName: "이동진",
+        outlet: "왓챠피디아",
+        rating: "3.5/5",
+        summary: "분위기와 배우들의 힘이 인상적인 오컬트 미스터리.",
+        sourceUrl: "https://pedia.watcha.com/",
+      },
+    ],
   },
   {
     id: "2",
     slug: "inside-out-2",
     title: "인사이드 아웃 2",
+    originalTitle: "Inside Out 2",
     releaseYear: "2024",
     genre: "애니메이션",
     runningTime: "96분",
@@ -121,6 +151,7 @@ export const placeholderMovies = [
         emotion: "위로됨",
         note: "내 마음을 조금 덜 미워해도 되겠다고 느꼈어요.",
         date: "2026.05.22",
+        rating: "4.5",
       },
       {
         author: "작은관객",
@@ -129,11 +160,27 @@ export const placeholderMovies = [
         date: "2026.05.24",
       },
     ],
+    criticReviews: [
+      {
+        criticName: "정시우",
+        outlet: "영화 저널",
+        rating: "B+",
+        summary: "성장의 어색함을 감정의 언어로 다정하게 풀어낸 속편.",
+        sourceUrl: "https://www.rottentomatoes.com/",
+      },
+      {
+        criticName: "박평식",
+        outlet: "씨네21",
+        summary: "전편의 온기를 잃지 않고 새로운 마음의 방을 연다.",
+        sourceUrl: "https://www.cine21.com/",
+      },
+    ],
   },
   {
     id: "3",
     slug: "your-name",
     title: "너의 이름은.",
+    originalTitle: "君の名は。",
     releaseYear: "2016",
     genre: "로맨스",
     runningTime: "106분",
@@ -155,12 +202,28 @@ export const placeholderMovies = [
         emotion: "여운 남음",
         note: "마지막 장면이 오래도록 빛처럼 남았어요.",
         date: "2026.05.25",
+        rating: "5.0",
       },
       {
         author: "밤의관객",
         emotion: "설렘",
         note: "다시 보고 싶은 마음이 먼저 들었어요.",
         date: "2026.05.27",
+      },
+    ],
+    criticReviews: [
+      {
+        criticName: "이지혜",
+        outlet: "필름 코멘트",
+        rating: "★★★★",
+        summary: "빛과 음악, 시간이 엇갈리는 감정을 강하게 각인한다.",
+        sourceUrl: "https://www.imdb.com/",
+      },
+      {
+        criticName: "허남웅",
+        outlet: "무비스트",
+        summary: "로맨스와 재난의 감각을 청춘의 떨림으로 엮어낸다.",
+        sourceUrl: "https://www.movist.com/",
       },
     ],
   },
