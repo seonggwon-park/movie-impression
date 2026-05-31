@@ -7,21 +7,21 @@ Deployed demo: [https://movie-impression-ihvaenxcg-seonggwon-park-s-projects.ver
 ## Current MVP Status
 
 - Cinematic landing page
-- Movie browsing page
-- Movie detail page
+- Movie browsing page with TMDb movie search
+- Movie detail page with emotion distribution
 - Lightweight impression creation form
 - Personal archive page
 - Basic email/password authentication
-- Placeholder data only
-
-The app still uses placeholder movie and impression data. TMDb integration and persistent impression saving are not implemented yet.
+- Supabase-backed impression saving
+- Local movie upsert from selected TMDb search results
 
 ## Planned Features
 
-- Supabase database
-- Saving impressions
-- TMDb movie search
-- Real emotion statistics
+- TMDb movie search inside the impression form
+- Better movie metadata sync
+- Edit/delete saved impressions
+- Real booking links per movie
+- Curated critic review management
 
 ## Tech Stack
 
@@ -29,19 +29,21 @@ The app still uses placeholder movie and impression data. TMDb integration and p
 - TypeScript
 - Tailwind CSS
 - Supabase JavaScript client
+- TMDb API
 - Vercel
-- Planned: Supabase database, authentication, TMDb API
 
-## Supabase Environment Setup
+## Environment Setup
 
-Supabase is configured at the client level, but the current MVP still uses placeholder data. To prepare local environment variables, copy `.env.example` to `.env.local` and fill in your Supabase project values:
+Copy `.env.example` to `.env.local` and fill in the local values:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+TMDB_API_KEY=your-tmdb-api-key
 ```
 
-Do not commit `.env.local`; it is already ignored by git.
+`TMDB_API_KEY` is used only by server-side route handlers and should not use the `NEXT_PUBLIC_` prefix. `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be exposed to the browser. The movie upsert API uses it to write through Supabase RLS. Never commit `.env.local`; it is already ignored by git.
 
 ## Local Development
 

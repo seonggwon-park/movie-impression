@@ -127,6 +127,13 @@ type MovieDetailState = {
   isFallback: boolean;
 };
 
+type MovieLookupDebug = {
+  rawParam: string;
+  decodedParam: string;
+  attemptedUuidLookup: boolean;
+  tmdbIdFallback: number | null;
+};
+
 const fallbackBookingLinks = [
   { id: "cgv", provider: "CGV", url: "https://www.cgv.co.kr/" },
   { id: "megabox", provider: "메가박스", url: "https://www.megabox.co.kr/" },
@@ -146,6 +153,40 @@ const uuidPattern =
 
 function isUuid(value: string) {
   return uuidPattern.test(value);
+}
+
+function decodeMovieIdentifier(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch (error) {
+    console.error("Movie route param decode failed", {
+      rawParam: value,
+      error,
+    });
+
+    return value;
+  }
+}
+
+function getTrailingTmdbId(value: string) {
+  const match = value.match(/-(\d+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const tmdbId = Number(match[1]);
+
+  return Number.isSafeInteger(tmdbId) && tmdbId > 0 ? tmdbId : null;
+}
+
+function formatLookupDebugDetail(debug: MovieLookupDebug) {
+  return [
+    `raw=${debug.rawParam}`,
+    `decoded=${debug.decodedParam}`,
+    `uuidLookup=${debug.attemptedUuidLookup ? "yes" : "no"}`,
+    `tmdbId=${debug.tmdbIdFallback ?? "none"}`,
+  ].join(" / ");
 }
 
 function getSingleRelation<T>(value: MaybeArray<T>) {
@@ -312,24 +353,51 @@ function getEmotionDistribution(impressions: ImpressionView[]) {
 
 async function fetchMovieByIdentifier(identifier: string) {
   const supabase = getSupabaseBrowserClient();
+  const decodedIdentifier = decodeMovieIdentifier(identifier);
+  const attemptedUuidLookup = isUuid(decodedIdentifier);
+  const tmdbIdFallback = getTrailingTmdbId(decodedIdentifier);
+  const lookupDebug: MovieLookupDebug = {
+    rawParam: identifier,
+    decodedParam: decodedIdentifier,
+    attemptedUuidLookup,
+    tmdbIdFallback,
+  };
   const selectFields =
     "id, title, original_title, overview, poster_url, release_date, runtime, genres, slug";
 
   const slugResult = await supabase
     .from("movies")
     .select(selectFields)
-    .eq("slug", identifier)
+    .eq("slug", decodedIdentifier)
     .maybeSingle();
 
-  if (slugResult.error || slugResult.data || !isUuid(identifier)) {
-    return slugResult;
+  if (slugResult.error || slugResult.data) {
+    return { lookupDebug, movieResult: slugResult };
   }
 
-  return supabase
-    .from("movies")
-    .select(selectFields)
-    .eq("id", identifier)
-    .maybeSingle();
+  if (attemptedUuidLookup) {
+    const idResult = await supabase
+      .from("movies")
+      .select(selectFields)
+      .eq("id", decodedIdentifier)
+      .maybeSingle();
+
+    if (idResult.error || idResult.data || !tmdbIdFallback) {
+      return { lookupDebug, movieResult: idResult };
+    }
+  }
+
+  if (tmdbIdFallback) {
+    const tmdbResult = await supabase
+      .from("movies")
+      .select(selectFields)
+      .eq("tmdb_id", tmdbIdFallback)
+      .maybeSingle();
+
+    return { lookupDebug, movieResult: tmdbResult };
+  }
+
+  return { lookupDebug, movieResult: slugResult };
 }
 
 export function MovieDetail({ identifier }: MovieDetailProps) {
@@ -337,12 +405,16 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
   const [detail, setDetail] = useState<MovieDetailState | null>(null);
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
   const [errorMessage, setErrorMessage] = useState("");
+  const [lookupDebugDetail, setLookupDebugDetail] = useState("");
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadMovieDetail() {
-      const placeholderFallback = getMovieByIdOrSlug(identifier);
+      const decodedIdentifier = decodeMovieIdentifier(identifier);
+      const placeholderFallback = getMovieByIdOrSlug(decodedIdentifier);
+      setErrorMessage("");
+      setLookupDebugDetail("");
 
       if (!isSupabaseConfigured) {
         if (placeholderFallback) {
@@ -356,14 +428,18 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         return;
       }
 
-      const movieResult = await fetchMovieByIdentifier(identifier);
+      const { lookupDebug, movieResult } =
+        await fetchMovieByIdentifier(identifier);
 
       if (!isMounted) {
         return;
       }
 
       if (movieResult.error) {
-        console.error("Supabase movie detail load failed", movieResult.error);
+        console.error("Supabase movie detail load failed", {
+          error: movieResult.error,
+          lookup: lookupDebug,
+        });
 
         if (placeholderFallback) {
           setDetail(createFallbackDetail(placeholderFallback));
@@ -384,7 +460,9 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         if (placeholderFallback) {
           setDetail(createFallbackDetail(placeholderFallback));
         } else {
+          console.error("Supabase movie lookup returned no data", lookupDebug);
           setErrorMessage("이 영화를 찾지 못했어요.");
+          setLookupDebugDetail(formatLookupDebugDetail(lookupDebug));
         }
 
         setIsLoading(false);
@@ -516,6 +594,11 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
             <p className="mt-3 text-base leading-7 text-[#f4c7d8]">
               {errorMessage || "영화 정보를 불러오지 못했어요."}
             </p>
+            {lookupDebugDetail && process.env.NODE_ENV === "development" ? (
+              <p className="mt-3 rounded-md bg-[#12100f]/40 px-3 py-2 text-xs leading-5 text-[#e7d4c0]">
+                {lookupDebugDetail}
+              </p>
+            ) : null}
           </Card>
         </PageContainer>
       </main>

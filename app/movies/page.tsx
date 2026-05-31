@@ -6,6 +6,7 @@ import {
   SectionHeader,
 } from "@/components/ui";
 import { placeholderMovies } from "@/lib/placeholder-data";
+import { MovieSearch } from "./movie-search";
 
 const filterChips = [
   { label: "전체", tone: "warm", selected: true },
@@ -67,6 +68,8 @@ export default function MoviesPage() {
             </p>
           </Card>
         </div>
+
+        <MovieSearch />
 
         <section className="mt-12" aria-labelledby="movie-filters">
           <h2 id="movie-filters" className="text-sm font-medium text-[#f2b482]">
