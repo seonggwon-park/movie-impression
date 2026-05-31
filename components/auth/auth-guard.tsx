@@ -15,14 +15,24 @@ function getLoginPath(pathname: string) {
   return `/login?next=${encodeURIComponent(pathname)}`;
 }
 
+function getCurrentPath(pathname: string) {
+  if (typeof window === "undefined") {
+    return pathname;
+  }
+
+  return `${window.location.pathname}${window.location.search}`;
+}
+
 export function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isAllowed, setIsAllowed] = useState(false);
 
   useEffect(() => {
+    const currentPath = getCurrentPath(pathname);
+
     if (!hasSupabaseConfig()) {
-      router.replace(getLoginPath(pathname));
+      router.replace(getLoginPath(currentPath));
       return;
     }
 
@@ -39,7 +49,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
         return;
       }
 
-      router.replace(getLoginPath(pathname));
+      router.replace(getLoginPath(currentPath));
     });
 
     const {
@@ -51,7 +61,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
       }
 
       setIsAllowed(false);
-      router.replace(getLoginPath(pathname));
+      router.replace(getLoginPath(currentPath));
     });
 
     return () => {

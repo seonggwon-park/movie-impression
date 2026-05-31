@@ -789,7 +789,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                   사람들이 남긴 한 줄 감상
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
-                  긴 리뷰보다 먼저 남은 감정의 기록들.
+                  긴 글보다 먼저 남은 감정의 기록들.
                 </p>
               </div>
               <ButtonLink href={ctaHref}>나도 감상 남기기</ButtonLink>

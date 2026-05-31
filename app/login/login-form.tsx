@@ -30,7 +30,23 @@ function getNextPath() {
 }
 
 function SupabaseDebugPanel() {
-  if (process.env.NODE_ENV !== "development") {
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShowDebugPanel(true);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
+  if (!showDebugPanel) {
     return null;
   }
 

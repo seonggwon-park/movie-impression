@@ -9,17 +9,16 @@ Deployed demo: [https://movie-impression-ihvaenxcg-seonggwon-park-s-projects.ver
 - Cinematic landing page
 - Movie browsing page with TMDb movie search
 - Movie detail page with emotion distribution
-- Lightweight impression creation form
+- Lightweight impression creation form with TMDb movie search
 - Personal archive page
 - Basic email/password authentication
 - Supabase-backed impression saving
+- Impression edit/delete from the personal archive
 - Local movie upsert from selected TMDb search results
 
 ## Planned Features
 
-- TMDb movie search inside the impression form
 - Better movie metadata sync
-- Edit/delete saved impressions
 - Real booking links per movie
 - Curated critic review management
 
@@ -44,6 +43,10 @@ TMDB_API_KEY=your-tmdb-api-key
 ```
 
 `TMDB_API_KEY` is used only by server-side route handlers and should not use the `NEXT_PUBLIC_` prefix. `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be exposed to the browser. The movie upsert API uses it to write through Supabase RLS. Never commit `.env.local`; it is already ignored by git.
+
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are public client environment variables used by the browser Supabase client. `SUPABASE_SERVICE_ROLE_KEY` and `TMDB_API_KEY` must stay server-only.
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 ## Local Development
 

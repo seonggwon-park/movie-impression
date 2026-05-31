@@ -68,7 +68,7 @@ export default function Home() {
       <PageContainer className="py-20 sm:py-24">
         <SectionHeader
           eyebrow="남겨진 감상"
-          title="긴 리뷰 대신, 마음에 남은 한 줄을 모아요."
+          title="긴 글 대신, 마음에 남은 한 줄을 모아요."
           description="좋았다, 별로였다보다 조금 더 개인적인 감상의 조각들."
         />
 
@@ -127,7 +127,7 @@ export default function Home() {
         <Card className="bg-[#fff7ea]/10 p-8 sm:p-10">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <p className="max-w-2xl text-2xl font-semibold leading-10 text-[#fff7ea]">
-              긴 리뷰가 아니어도 괜찮아요. 오늘 마음에 남은 감정 하나만
+              긴 글이 아니어도 괜찮아요. 오늘 마음에 남은 감정 하나만
               남겨보세요.
             </p>
             <ButtonLink href="/impressions/new" className="w-full sm:w-auto">
