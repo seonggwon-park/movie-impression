@@ -15,6 +15,7 @@ import {
   hasSupabaseConfig,
   upsertUserProfile,
 } from "@/lib/supabase";
+import { getWatchMethodLabel } from "@/lib/watch-methods";
 
 type MaybeArray<T> = T | T[] | null;
 
@@ -48,6 +49,7 @@ type SupabaseImpressionRow = {
   rating: number | null;
   is_spoiler: boolean | null;
   watched_at: string | null;
+  watch_method: string | null;
   created_at: string | null;
   impression_emotions:
     | Array<{
@@ -98,6 +100,7 @@ type ImpressionView = {
   rating: string | null;
   isSpoiler: boolean;
   watchedAt: string | null;
+  watchMethod: string | null;
   createdAt: string | null;
   emotions: EmotionView[];
 };
@@ -271,6 +274,7 @@ function normalizeImpression(row: SupabaseImpressionRow): ImpressionView {
     rating: row.rating ? String(row.rating) : null,
     isSpoiler: Boolean(row.is_spoiler),
     watchedAt: row.watched_at,
+    watchMethod: row.watch_method,
     createdAt: row.created_at,
     emotions,
   };
@@ -321,6 +325,38 @@ function getEmotionDistribution(impressions: ImpressionView[]) {
     .map((item) => ({
       emotion: item.emotion,
       count: item.count,
+      percent: total > 0 ? Math.round((item.count / total) * 100) : 0,
+    }));
+}
+
+function getWatchMethodStats(impressions: ImpressionView[]) {
+  const counts = impressions.reduce<
+    Record<string, { label: string; count: number }>
+  >((current, impression) => {
+    const label = getWatchMethodLabel(impression.watchMethod);
+
+    if (!impression.watchMethod || !label) {
+      return current;
+    }
+
+    return {
+      ...current,
+      [impression.watchMethod]: {
+        label,
+        count: (current[impression.watchMethod]?.count ?? 0) + 1,
+      },
+    };
+  }, {});
+
+  const total = Object.values(counts).reduce(
+    (sum, item) => sum + item.count,
+    0,
+  );
+
+  return Object.values(counts)
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "ko-KR"))
+    .map((item) => ({
+      ...item,
       percent: total > 0 ? Math.round((item.count / total) * 100) : 0,
     }));
 }
@@ -459,6 +495,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
               rating,
               is_spoiler,
               watched_at,
+              watch_method,
               created_at,
               impression_emotions (
                 emotions (
@@ -662,6 +699,10 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
 
   const emotionDistribution = useMemo(
     () => getEmotionDistribution(detail?.impressions ?? []),
+    [detail?.impressions],
+  );
+  const watchMethodStats = useMemo(
+    () => getWatchMethodStats(detail?.impressions ?? []),
     [detail?.impressions],
   );
   const topEmotion = emotionDistribution[0]?.emotion;
@@ -883,6 +924,51 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
           </Card>
         </section>
 
+        <section className="mt-8" aria-labelledby="watch-method-stats">
+          <Card className="p-6 sm:p-8">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium text-[#f2b482]">시청 방법</p>
+              <h2
+                id="watch-method-stats"
+                className="text-2xl font-semibold text-[#fff7ea]"
+              >
+                사람들은 이렇게 봤어요
+              </h2>
+              <p className="text-sm leading-6 text-[#c9ad96]">
+                감상을 남긴 사람들이 선택한 시청 방법이에요.
+              </p>
+            </div>
+
+            {watchMethodStats.length > 0 ? (
+              <div className="mt-6 space-y-4">
+                {watchMethodStats.map((method) => (
+                  <div key={method.label}>
+                    <div className="mb-2 flex items-center justify-between gap-4">
+                      <span className="font-semibold text-[#fff7ea]">
+                        {method.label}
+                      </span>
+                      <span className="text-sm font-medium text-[#f2b482]">
+                        {method.count.toLocaleString("ko-KR")}명 ·{" "}
+                        {method.percent}%
+                      </span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-[#12100f]/60">
+                      <div
+                        className="h-full rounded-full bg-[linear-gradient(90deg,#f0a15f,#ffd3a3)]"
+                        style={{ width: `${method.percent}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-6 rounded-lg border border-dashed border-[#fff7ea]/12 bg-[#fff7ea]/5 p-4 text-sm leading-6 text-[#c9ad96]">
+                아직 시청 방법 통계가 없어요.
+              </p>
+            )}
+          </Card>
+        </section>
+
         <section className="mt-16 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.44fr)]">
           <Card className="p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -914,6 +1000,9 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                 {detail.impressions.map((impression) => {
                   const watchedDate = formatDate(impression.watchedAt);
                   const createdDate = formatDate(impression.createdAt);
+                  const watchMethodLabel = getWatchMethodLabel(
+                    impression.watchMethod,
+                  );
                   const canReport =
                     !currentUserId || impression.userId !== currentUserId;
                   const isReported = reportedImpressionIds.includes(
@@ -941,6 +1030,11 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                         {impression.rating ? (
                           <span className="rounded-full bg-[#fff7ea]/8 px-3 py-1 text-sm text-[#e7d4c0]">
                             별점 {impression.rating}
+                          </span>
+                        ) : null}
+                        {watchMethodLabel ? (
+                          <span className="rounded-full bg-[#fff7ea]/8 px-3 py-1 text-sm text-[#e7d4c0]">
+                            시청 방법: {watchMethodLabel}
                           </span>
                         ) : null}
                         {impression.isSpoiler ? (
