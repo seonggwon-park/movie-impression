@@ -10,7 +10,7 @@ import {
   PageContainer,
   SectionHeader,
 } from "@/components/ui";
-import type { EmotionTone } from "@/lib/placeholder-data";
+import type { EmotionTone } from "@/lib/emotions";
 import {
   getSupabaseBrowserClient,
   hasSupabaseConfig,

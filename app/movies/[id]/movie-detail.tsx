@@ -9,12 +9,7 @@ import {
   PageContainer,
   SectionHeader,
 } from "@/components/ui";
-import {
-  type EmotionTone,
-  type Movie,
-  emotionOptions,
-  getMovieByIdOrSlug,
-} from "@/lib/placeholder-data";
+import { getEmotionTone } from "@/lib/emotions";
 import {
   getSupabaseBrowserClient,
   hasSupabaseConfig,
@@ -124,7 +119,6 @@ type MovieDetailState = {
   impressions: ImpressionView[];
   criticReviews: CriticReviewView[];
   bookingLinks: BookingLinkView[];
-  isFallback: boolean;
 };
 
 type MovieLookupDebug = {
@@ -143,10 +137,6 @@ const fallbackBookingLinks = [
     url: "https://www.lottecinema.co.kr/",
   },
 ] satisfies BookingLinkView[];
-
-const emotionToneByLabel = new Map(
-  emotionOptions.map((emotion) => [emotion.label, emotion.tone]),
-);
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -195,10 +185,6 @@ function getSingleRelation<T>(value: MaybeArray<T>) {
   }
 
   return value;
-}
-
-function getEmotionTone(emotionName: string): EmotionTone {
-  return emotionToneByLabel.get(emotionName) ?? "warm";
 }
 
 function getEmotionLabel(emotion: EmotionView) {
@@ -277,49 +263,6 @@ function normalizeBookingLink(row: SupabaseBookingLinkRow): BookingLinkView {
     id: row.id,
     provider: row.provider,
     url: row.url,
-  };
-}
-
-function createFallbackDetail(movie: Movie): MovieDetailState {
-  const fallbackEmotions = movie.impressions.map((impression, index) => ({
-    id: `${movie.id}-${impression.emotion}-${index}`,
-    name: impression.emotion,
-    emoji: null,
-  }));
-
-  return {
-    movie: {
-      id: movie.id,
-      title: movie.title,
-      originalTitle: movie.originalTitle ?? null,
-      overview: movie.synopsis,
-      posterUrl: null,
-      releaseDate: null,
-      releaseYear: movie.releaseYear,
-      runtimeLabel: movie.runningTime,
-      genres: [movie.genre],
-      slug: movie.slug,
-    },
-    impressions: movie.impressions.map((impression, index) => ({
-      id: `${movie.id}-fallback-${index}`,
-      oneLine: impression.note,
-      note: null,
-      rating: impression.rating ?? null,
-      isSpoiler: false,
-      watchedAt: impression.date,
-      createdAt: impression.date,
-      emotions: [fallbackEmotions[index]],
-    })),
-    criticReviews: movie.criticReviews.map((review, index) => ({
-      id: `${movie.id}-critic-${index}`,
-      criticName: review.criticName,
-      outlet: review.outlet,
-      rating: review.rating ?? null,
-      shortQuote: review.summary,
-      sourceUrl: review.sourceUrl,
-    })),
-    bookingLinks: fallbackBookingLinks,
-    isFallback: true,
   };
 }
 
@@ -411,19 +354,13 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
     let isMounted = true;
 
     async function loadMovieDetail() {
-      const decodedIdentifier = decodeMovieIdentifier(identifier);
-      const placeholderFallback = getMovieByIdOrSlug(decodedIdentifier);
       setErrorMessage("");
       setLookupDebugDetail("");
 
       if (!isSupabaseConfigured) {
-        if (placeholderFallback) {
-          setDetail(createFallbackDetail(placeholderFallback));
-        } else {
-          setErrorMessage(
-            "Supabase 환경변수가 설정되지 않았고, 임시 영화 데이터도 찾지 못했어요.",
-          );
-        }
+        setErrorMessage(
+          "Supabase 환경변수가 설정되지 않아 영화 정보를 불러올 수 없어요.",
+        );
         setIsLoading(false);
         return;
       }
@@ -441,29 +378,18 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
           lookup: lookupDebug,
         });
 
-        if (placeholderFallback) {
-          setDetail(createFallbackDetail(placeholderFallback));
-          setErrorMessage(
-            `실제 영화 데이터를 불러오지 못해 임시 데이터를 보여주고 있어요. ${movieResult.error.message}`,
-          );
-        } else {
-          setErrorMessage(
-            `영화 정보를 불러오지 못했어요. ${movieResult.error.message}`,
-          );
-        }
+        setErrorMessage(
+          `영화 정보를 불러오지 못했어요. ${movieResult.error.message}`,
+        );
 
         setIsLoading(false);
         return;
       }
 
       if (!movieResult.data) {
-        if (placeholderFallback) {
-          setDetail(createFallbackDetail(placeholderFallback));
-        } else {
-          console.error("Supabase movie lookup returned no data", lookupDebug);
-          setErrorMessage("이 영화를 찾지 못했어요.");
-          setLookupDebugDetail(formatLookupDebugDetail(lookupDebug));
-        }
+        console.error("Supabase movie lookup returned no data", lookupDebug);
+        setErrorMessage("이 영화를 찾지 못했어요.");
+        setLookupDebugDetail(formatLookupDebugDetail(lookupDebug));
 
         setIsLoading(false);
         return;
@@ -540,7 +466,6 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         ).map(normalizeCriticReview),
         bookingLinks:
           bookingLinks.length > 0 ? bookingLinks : fallbackBookingLinks,
-        isFallback: false,
       });
       setIsLoading(false);
     }
@@ -626,14 +551,6 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         {errorMessage ? (
           <Card className="mt-8 border-[#f4c7d8]/24 bg-[#f4c7d8]/10 p-5">
             <p className="text-sm leading-6 text-[#f4c7d8]">{errorMessage}</p>
-          </Card>
-        ) : null}
-
-        {detail.isFallback ? (
-          <Card className="mt-8 border-[#f0a15f]/24 bg-[#f0a15f]/10 p-5">
-            <p className="text-sm leading-6 text-[#ffd3a3]">
-              실제 Supabase 데이터를 찾지 못해 임시 영화 정보를 보여주고 있어요.
-            </p>
           </Card>
         ) : null}
 

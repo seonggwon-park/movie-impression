@@ -1,4 +1,3 @@
-import { placeholderMovies } from "@/lib/placeholder-data";
 import { MovieDetail } from "./movie-detail";
 
 export const dynamic = "force-dynamic";
@@ -8,13 +7,6 @@ type MovieDetailPageProps = {
     id: string;
   }>;
 };
-
-export function generateStaticParams() {
-  return placeholderMovies.flatMap((movie) => [
-    { id: movie.id },
-    { id: movie.slug },
-  ]);
-}
 
 export default async function MovieDetailPage({
   params,

@@ -3,7 +3,7 @@
 import { type FormEvent, type KeyboardEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, EmotionTag } from "@/components/ui";
-import type { EmotionTone } from "@/lib/placeholder-data";
+import type { EmotionTone } from "@/lib/emotions";
 import {
   getSupabaseBrowserClient,
   hasSupabaseConfig,

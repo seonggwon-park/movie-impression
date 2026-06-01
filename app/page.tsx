@@ -6,13 +6,40 @@ import {
   PageContainer,
   SectionHeader,
 } from "@/components/ui";
-import {
-  emotionOptions,
-  featuredImpressions,
-  placeholderMovies,
-} from "@/lib/placeholder-data";
+import { emotionOptions } from "@/lib/emotions";
 
-const popularMovies = placeholderMovies.slice(0, 3);
+const impressionPrinciples = [
+  {
+    title: "감정으로 남기는 영화 기록",
+    description:
+      "영화를 점수로 정리하기 전에, 그날 마음에 남은 감정부터 골라요.",
+  },
+  {
+    title: "한 줄만 남겨도 괜찮아요",
+    description:
+      "긴 글을 쓰지 않아도 괜찮아요. 떠오르는 장면과 마음 한 문장이면 충분해요.",
+  },
+  {
+    title: "내가 본 영화의 여운을 모아보세요",
+    description:
+      "시간이 지나도 다시 꺼내 보고 싶은 감상들을 나만의 작은 아카이브로 쌓아요.",
+  },
+] as const;
+
+const archiveSteps = [
+  {
+    title: "영화를 찾고",
+    description: "TMDb 검색으로 기록할 영화를 여운에 담아요.",
+  },
+  {
+    title: "감정을 고르고",
+    description: "먹먹함, 설렘, 위로됨처럼 마음에 가까운 단어를 선택해요.",
+  },
+  {
+    title: "감상을 남겨요",
+    description: "한 줄 감상과 기억하고 싶은 장면을 조용히 저장해요.",
+  },
+] as const;
 
 export default function Home() {
   return (
@@ -67,24 +94,19 @@ export default function Home() {
 
       <PageContainer className="py-20 sm:py-24">
         <SectionHeader
-          eyebrow="남겨진 감상"
-          title="긴 글 대신, 마음에 남은 한 줄을 모아요."
-          description="좋았다, 별로였다보다 조금 더 개인적인 감상의 조각들."
+          eyebrow="여운을 남기는 방식"
+          title="진짜 감상이 쌓이기 전에도, 이곳의 방향은 분명해요."
+          description="여운은 영화 데이터를 채우는 곳보다, 영화를 본 뒤 남은 마음을 조용히 보관하는 공간에 가까워요."
         />
 
         <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {featuredImpressions.map((item) => (
-            <Card key={item.movieTitle} className="flex h-full flex-col">
-              <div className="flex items-start justify-between gap-4">
-                <h3 className="text-xl font-semibold text-[#fff7ea]">
-                  {item.movieTitle}
-                </h3>
-                <EmotionTag as="span" className="shrink-0" tone="warm">
-                  {item.emotion}
-                </EmotionTag>
-              </div>
-              <p className="mt-8 text-lg leading-8 text-[#f1ddc9]">
-                “{item.impression}”
+          {impressionPrinciples.map((item) => (
+            <Card key={item.title} className="flex h-full flex-col">
+              <h3 className="text-2xl font-semibold leading-tight text-[#fff7ea]">
+                {item.title}
+              </h3>
+              <p className="mt-6 flex-1 text-base leading-7 text-[#e7d4c0]">
+                {item.description}
               </p>
             </Card>
           ))}
@@ -93,30 +115,20 @@ export default function Home() {
 
       <PageContainer className="py-20 sm:py-24">
         <SectionHeader
-          eyebrow="요즘 남겨진 영화"
-          title="지금 사람들의 마음에 남아 있는 영화들"
-          description="극장 밖으로 이어진 감정의 흐름을 가볍게 둘러보세요."
+          eyebrow="기록 흐름"
+          title="영화를 찾고, 감정을 고르고, 한 줄을 남겨요."
+          description="아직 감상이 없다면 비어 있는 상태 그대로 두고, 첫 기록이 쌓이기를 기다려요."
         />
 
         <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {popularMovies.map((movie) => (
-            <Card key={movie.title} className="flex h-full flex-col">
-              <div>
-                <p className="text-sm text-[#c9ad96]">{movie.releaseYear}</p>
-                <h3 className="mt-2 text-2xl font-semibold text-[#fff7ea]">
-                  {movie.title}
-                </h3>
-              </div>
-              <div className="mt-5">
-                <EmotionTag as="span" tone={movie.emotionTone}>
-                  {movie.mainEmotion}
-                </EmotionTag>
-              </div>
-              <p className="mt-6 flex-1 text-base leading-7 text-[#e7d4c0]">
-                {movie.shortDescription}
-              </p>
-              <p className="mt-8 text-sm font-medium text-[#f2b482]">
-                감상 {movie.impressionCount.toLocaleString("ko-KR")}개
+          {archiveSteps.map((step) => (
+            <Card key={step.title} className="flex h-full flex-col">
+              <p className="text-sm font-medium text-[#f2b482]">남은 장면</p>
+              <h3 className="mt-4 text-2xl font-semibold text-[#fff7ea]">
+                {step.title}
+              </h3>
+              <p className="mt-5 flex-1 text-base leading-7 text-[#e7d4c0]">
+                {step.description}
               </p>
             </Card>
           ))}
