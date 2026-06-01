@@ -1,21 +1,24 @@
+import { Suspense } from "react";
 import {
   Card,
-  EmotionTag,
   PageContainer,
   SectionHeader,
 } from "@/components/ui";
 import { MovieBrowser } from "./movie-browser";
 import { MovieSearch } from "./movie-search";
 
-const filterChips = [
-  { label: "전체", tone: "warm", selected: true },
-  { label: "먹먹한", tone: "warm", selected: false },
-  { label: "설레는", tone: "rose", selected: false },
-  { label: "위로되는", tone: "violet", selected: false },
-  { label: "통쾌한", tone: "warm", selected: false },
-  { label: "찝찝한", tone: "violet", selected: false },
-  { label: "여운 남는", tone: "warm", selected: false },
-] as const;
+function MovieBrowserFallback() {
+  return (
+    <Card className="mt-12 p-6">
+      <p className="text-sm font-medium text-[#f2b482]">
+        영화 목록을 준비하는 중
+      </p>
+      <p className="mt-3 text-xl font-semibold leading-8 text-[#fff7ea]">
+        사람들이 남긴 여운을 조용히 정리하고 있어요.
+      </p>
+    </Card>
+  );
+}
 
 export default function MoviesPage() {
   return (
@@ -39,25 +42,9 @@ export default function MoviesPage() {
 
         <MovieSearch />
 
-        <section className="mt-12" aria-labelledby="movie-filters">
-          <h2 id="movie-filters" className="text-sm font-medium text-[#f2b482]">
-            감정으로 둘러보기
-          </h2>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {filterChips.map((chip) => (
-              <EmotionTag
-                as="span"
-                key={chip.label}
-                selected={chip.selected}
-                tone={chip.tone}
-              >
-                {chip.label}
-              </EmotionTag>
-            ))}
-          </div>
-        </section>
-
-        <MovieBrowser />
+        <Suspense fallback={<MovieBrowserFallback />}>
+          <MovieBrowser />
+        </Suspense>
       </PageContainer>
     </main>
   );

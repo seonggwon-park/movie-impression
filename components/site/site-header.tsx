@@ -20,6 +20,7 @@ export function SiteHeader() {
   const isSupabaseConfigured = hasSupabaseConfig();
   const [isCheckingAuth, setIsCheckingAuth] = useState(isSupabaseConfigured);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -29,20 +30,45 @@ export function SiteHeader() {
     const supabase = getSupabaseBrowserClient();
     let isMounted = true;
 
-    supabase.auth.getUser().then(({ data }) => {
+    async function applyUserState(userId: string | null) {
       if (!isMounted) {
         return;
       }
 
-      setIsLoggedIn(Boolean(data.user));
+      setIsLoggedIn(Boolean(userId));
+      setIsAdmin(false);
+
+      if (!userId) {
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (error) {
+        console.error("Admin role lookup failed in header", error);
+      }
+
+      setIsAdmin(profile?.role === "admin");
       setIsCheckingAuth(false);
+    }
+
+    supabase.auth.getUser().then(({ data }) => {
+      void applyUserState(data.user?.id ?? null);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(Boolean(session?.user));
-      setIsCheckingAuth(false);
+      void applyUserState(session?.user.id ?? null);
     });
 
     return () => {
@@ -59,6 +85,7 @@ export function SiteHeader() {
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
     setIsLoggedIn(false);
+    setIsAdmin(false);
     router.refresh();
   }
 
@@ -81,6 +108,14 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+          {isLoggedIn && isAdmin ? (
+            <Link
+              href="/admin/reports"
+              className="rounded-full border border-[#f0a15f]/28 bg-[#f0a15f]/10 px-4 py-2 text-sm font-semibold text-[#ffd3a3] transition hover:border-[#f0a15f]/45 hover:bg-[#f0a15f]/16 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+            >
+              신고 관리
+            </Link>
+          ) : null}
           {isCheckingAuth ? null : isLoggedIn ? (
             <button
               type="button"

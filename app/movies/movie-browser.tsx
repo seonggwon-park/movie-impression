@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ButtonLink, Card, EmotionTag } from "@/components/ui";
-import { getEmotionTone } from "@/lib/emotions";
+import { type EmotionTone, getEmotionTone } from "@/lib/emotions";
 import {
   getSupabaseBrowserClient,
   hasSupabaseConfig,
@@ -54,8 +55,25 @@ type MovieView = {
   createdAt: string | null;
   impressionCount: number;
   mainEmotion: EmotionView | null;
+  emotionNames: string[];
   emotionVariety: number;
 };
+
+type EmotionFilter = {
+  label: string;
+  emotionName: string | null;
+  tone: EmotionTone;
+};
+
+const emotionFilters = [
+  { label: "전체", emotionName: null, tone: "warm" },
+  { label: "먹먹한", emotionName: "먹먹함", tone: "warm" },
+  { label: "설레는", emotionName: "설렘", tone: "rose" },
+  { label: "위로되는", emotionName: "위로됨", tone: "violet" },
+  { label: "통쾌한", emotionName: "통쾌함", tone: "warm" },
+  { label: "찝찝한", emotionName: "찝찝함", tone: "violet" },
+  { label: "여운 남는", emotionName: "여운 남음", tone: "warm" },
+] satisfies EmotionFilter[];
 
 function getSingleRelation<T>(value: MaybeArray<T>) {
   if (Array.isArray(value)) {
@@ -124,6 +142,7 @@ function createMovieViews(
 
   return movies.map((movie) => {
     const stats = statsByMovieId.get(movie.id);
+    const emotionNames = [...(stats?.emotionCounts.keys() ?? [])];
     const mainEmotion =
       [...(stats?.emotionCounts.values() ?? [])].sort(
         (a, b) => b.count - a.count,
@@ -141,6 +160,7 @@ function createMovieViews(
       createdAt: movie.created_at,
       impressionCount: stats?.impressionCount ?? 0,
       mainEmotion,
+      emotionNames,
       emotionVariety: stats?.emotionCounts.size ?? 0,
     };
   });
@@ -225,6 +245,9 @@ function MovieCard({ movie }: { movie: MovieView }) {
 }
 
 export function MovieBrowser() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const isSupabaseConfigured = hasSupabaseConfig();
   const [movies, setMovies] = useState<MovieView[]>([]);
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
@@ -233,6 +256,12 @@ export function MovieBrowser() {
       ? ""
       : "Supabase 환경변수가 설정되지 않아 저장된 영화 목록을 불러올 수 없어요.",
   );
+  const requestedEmotionName = searchParams.get("emotion");
+  const selectedEmotionName = emotionFilters.some(
+    (filter) => filter.emotionName === requestedEmotionName,
+  )
+    ? requestedEmotionName
+    : null;
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -298,12 +327,30 @@ export function MovieBrowser() {
     };
   }, [isSupabaseConfigured]);
 
+  function handleSelectEmotion(emotionName: string | null) {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (emotionName) {
+      params.set("emotion", emotionName);
+    } else {
+      params.delete("emotion");
+    }
+
+    const queryString = params.toString();
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
+      scroll: false,
+    });
+  }
+
   const rankingGroups = useMemo(() => {
-    const recentlyAdded = sortByCreatedAt(movies);
-    const mostImpressed = [...movies].sort(
+    const browsedMovies = selectedEmotionName
+      ? movies.filter((movie) => movie.emotionNames.includes(selectedEmotionName))
+      : movies;
+    const recentlyAdded = sortByCreatedAt(browsedMovies);
+    const mostImpressed = [...browsedMovies].sort(
       (a, b) => b.impressionCount - a.impressionCount,
     );
-    const mostVaried = [...movies].sort(
+    const mostVaried = [...browsedMovies].sort(
       (a, b) =>
         b.emotionVariety - a.emotionVariety ||
         b.impressionCount - a.impressionCount,
@@ -326,6 +373,34 @@ export function MovieBrowser() {
         movies: mostVaried,
       },
     ];
+  }, [movies, selectedEmotionName]);
+
+  const filteredMovies = useMemo(
+    () =>
+      selectedEmotionName
+        ? movies.filter((movie) => movie.emotionNames.includes(selectedEmotionName))
+        : movies,
+    [movies, selectedEmotionName],
+  );
+
+  const movieCountsByEmotion = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    emotionFilters.forEach((filter) => {
+      if (!filter.emotionName) {
+        return;
+      }
+
+      const emotionName = filter.emotionName;
+
+      counts.set(
+        emotionName,
+        movies.filter((movie) => movie.emotionNames.includes(emotionName))
+          .length,
+      );
+    });
+
+    return counts;
   }, [movies]);
 
   if (isLoading) {
@@ -367,69 +442,113 @@ export function MovieBrowser() {
 
   return (
     <>
-      <section className="mt-14 grid gap-4 lg:grid-cols-3">
-        {rankingGroups.map((group) => (
-          <Card key={group.title} className="p-5">
-            <h2 className="text-lg font-semibold text-[#fff7ea]">
-              {group.title}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
-              {group.description}
-            </p>
-            <ol className="mt-5 space-y-3">
-              {group.movies.slice(0, 3).map((movie, index) => (
-                <li
-                  key={`${group.title}-${movie.id}`}
-                  className="flex items-center justify-between gap-4 rounded-lg border border-[#fff7ea]/8 bg-[#12100f]/38 px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-[#fff7ea]">
-                      {index + 1}. {movie.title}
-                    </p>
-                    <p className="mt-1 text-sm text-[#c9ad96]">
-                      감상 {movie.impressionCount.toLocaleString("ko-KR")}개
-                    </p>
-                  </div>
-                  {movie.mainEmotion ? (
-                    <EmotionTag
-                      as="span"
-                      tone={getEmotionTone(movie.mainEmotion.name)}
-                    >
-                      {getEmotionLabel(movie.mainEmotion)}
-                    </EmotionTag>
-                  ) : (
-                    <EmotionTag as="span" tone="warm">
-                      대기
-                    </EmotionTag>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </Card>
-        ))}
+      <section className="mt-12" aria-labelledby="movie-filters">
+        <h2 id="movie-filters" className="text-sm font-medium text-[#f2b482]">
+          감정으로 둘러보기
+        </h2>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {emotionFilters.map((filter) => {
+            const count = filter.emotionName
+              ? (movieCountsByEmotion.get(filter.emotionName) ?? 0)
+              : movies.length;
+            const isSelected = selectedEmotionName === filter.emotionName;
+
+            return (
+              <EmotionTag
+                key={filter.label}
+                selected={isSelected}
+                tone={filter.tone}
+                onClick={() => handleSelectEmotion(filter.emotionName)}
+              >
+                {filter.label} {count.toLocaleString("ko-KR")}
+              </EmotionTag>
+            );
+          })}
+        </div>
       </section>
 
-      <section className="mt-16" aria-labelledby="movie-list">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 id="movie-list" className="text-2xl font-semibold text-[#fff7ea]">
-              등록된 영화
-            </h2>
-            <p className="mt-2 text-sm text-[#c9ad96]">
-              검색으로 추가된 영화와 실제 남겨진 감상을 함께 보여줘요.
-            </p>
-          </div>
-          <p className="text-sm font-medium text-[#f2b482]">
-            {movies.length.toLocaleString("ko-KR")}편
+      {filteredMovies.length === 0 ? (
+        <Card className="mt-12 border-dashed bg-[#fff7ea]/5 p-8 text-center">
+          <p className="text-2xl font-semibold text-[#fff7ea]">
+            아직 이 감정으로 남겨진 영화가 없어요.
           </p>
-        </div>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#c9ad96]">
+            다른 감정을 골라보거나, 첫 감상을 남겨보세요.
+          </p>
+          <ButtonLink href="/impressions/new" className="mt-7">
+            첫 감상 남기기
+          </ButtonLink>
+        </Card>
+      ) : (
+        <>
+          <section className="mt-14 grid gap-4 lg:grid-cols-3">
+            {rankingGroups.map((group) => (
+              <Card key={group.title} className="p-5">
+                <h2 className="text-lg font-semibold text-[#fff7ea]">
+                  {group.title}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+                  {group.description}
+                </p>
+                <ol className="mt-5 space-y-3">
+                  {group.movies.slice(0, 3).map((movie, index) => (
+                    <li
+                      key={`${group.title}-${movie.id}`}
+                      className="flex items-center justify-between gap-4 rounded-lg border border-[#fff7ea]/8 bg-[#12100f]/38 px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-[#fff7ea]">
+                          {index + 1}. {movie.title}
+                        </p>
+                        <p className="mt-1 text-sm text-[#c9ad96]">
+                          감상 {movie.impressionCount.toLocaleString("ko-KR")}개
+                        </p>
+                      </div>
+                      {movie.mainEmotion ? (
+                        <EmotionTag
+                          as="span"
+                          tone={getEmotionTone(movie.mainEmotion.name)}
+                        >
+                          {getEmotionLabel(movie.mainEmotion)}
+                        </EmotionTag>
+                      ) : (
+                        <EmotionTag as="span" tone="warm">
+                          대기
+                        </EmotionTag>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </Card>
+            ))}
+          </section>
 
-        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {movies.map((movie) => (
-            <MovieCard key={movie.id} movie={movie} />
-          ))}
-        </div>
-      </section>
+          <section className="mt-16" aria-labelledby="movie-list">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2
+                  id="movie-list"
+                  className="text-2xl font-semibold text-[#fff7ea]"
+                >
+                  등록된 영화
+                </h2>
+                <p className="mt-2 text-sm text-[#c9ad96]">
+                  검색으로 추가된 영화와 실제 남겨진 감상을 함께 보여줘요.
+                </p>
+              </div>
+              <p className="text-sm font-medium text-[#f2b482]">
+                {filteredMovies.length.toLocaleString("ko-KR")}편
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {filteredMovies.map((movie) => (
+                <MovieCard key={movie.id} movie={movie} />
+              ))}
+            </div>
+          </section>
+        </>
+      )}
     </>
   );
 }
