@@ -15,12 +15,20 @@ const navItems = [
   { href: "/me", label: "나의 여운" },
 ] as const;
 
+type PendingReportsCountResponse = {
+  pendingCount?: number;
+  message?: string;
+};
+
 export function SiteHeader() {
   const router = useRouter();
   const isSupabaseConfigured = hasSupabaseConfig();
   const [isCheckingAuth, setIsCheckingAuth] = useState(isSupabaseConfigured);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [pendingReportCount, setPendingReportCount] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -37,6 +45,7 @@ export function SiteHeader() {
 
       setIsLoggedIn(Boolean(userId));
       setIsAdmin(false);
+      setPendingReportCount(null);
 
       if (!userId) {
         setIsCheckingAuth(false);
@@ -77,6 +86,58 @@ export function SiteHeader() {
     };
   }, [isSupabaseConfigured]);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured || !isLoggedIn || !isAdmin) {
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    let isMounted = true;
+
+    async function loadPendingReportCount() {
+      setPendingReportCount(null);
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data.session?.access_token;
+
+        if (!accessToken) {
+          return;
+        }
+
+        const response = await fetch("/api/admin/reports/count", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        const payload =
+          (await response.json()) as PendingReportsCountResponse;
+
+        if (!response.ok) {
+          console.warn(
+            "Pending report count request failed",
+            payload.message ?? response.statusText,
+          );
+          return;
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        setPendingReportCount(payload.pendingCount ?? 0);
+      } catch (error) {
+        console.warn("Pending report count request failed", error);
+      }
+    }
+
+    void loadPendingReportCount();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isSupabaseConfigured, isLoggedIn, isAdmin]);
+
   async function handleSignOut() {
     if (!isSupabaseConfigured) {
       return;
@@ -86,6 +147,7 @@ export function SiteHeader() {
     await supabase.auth.signOut();
     setIsLoggedIn(false);
     setIsAdmin(false);
+    setPendingReportCount(null);
     router.refresh();
   }
 
@@ -111,9 +173,14 @@ export function SiteHeader() {
           {isLoggedIn && isAdmin ? (
             <Link
               href="/admin/reports"
-              className="rounded-full border border-[#f0a15f]/28 bg-[#f0a15f]/10 px-4 py-2 text-sm font-semibold text-[#ffd3a3] transition hover:border-[#f0a15f]/45 hover:bg-[#f0a15f]/16 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+              className="inline-flex items-center gap-2 rounded-full border border-[#f0a15f]/28 bg-[#f0a15f]/10 px-4 py-2 text-sm font-semibold text-[#ffd3a3] transition hover:border-[#f0a15f]/45 hover:bg-[#f0a15f]/16 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
             >
-              신고 관리
+              <span>신고 관리</span>
+              {pendingReportCount ? (
+                <span className="min-w-5 rounded-full border border-[#1f1208]/20 bg-[#ffd3a3] px-1.5 py-0.5 text-center text-xs font-bold leading-none text-[#1f1208]">
+                  {pendingReportCount.toLocaleString("ko-KR")}
+                </span>
+              ) : null}
             </Link>
           ) : null}
           {isCheckingAuth ? null : isLoggedIn ? (
