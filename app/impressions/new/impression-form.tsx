@@ -1,6 +1,12 @@
 "use client";
 
-import { type FormEvent, type KeyboardEvent, useEffect, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, EmotionTag } from "@/components/ui";
 import type { EmotionTone } from "@/lib/emotions";
@@ -13,6 +19,8 @@ import {
 type MovieOption = {
   id: string;
   title: string;
+  poster_url: string | null;
+  release_date: string | null;
 };
 
 type TmdbSearchResult = {
@@ -89,6 +97,7 @@ function getOverviewPreview(overview: string | null) {
 
 export function ImpressionForm() {
   const router = useRouter();
+  const movieSearchInputRef = useRef<HTMLInputElement>(null);
   const isSupabaseConfigured = hasSupabaseConfig();
   const [movies, setMovies] = useState<MovieOption[]>([]);
   const [emotions, setEmotions] = useState<EmotionOption[]>([]);
@@ -144,7 +153,10 @@ export function ImpressionForm() {
       }
 
       const [moviesResult, emotionsResult] = await Promise.all([
-        supabase.from("movies").select("id, title").order("title"),
+        supabase
+          .from("movies")
+          .select("id, title, poster_url, release_date")
+          .order("title"),
         supabase.from("emotions").select("id, name").order("name"),
       ]);
 
@@ -175,7 +187,7 @@ export function ImpressionForm() {
 
       setMovies(loadedMovies);
       setEmotions(loadedEmotions);
-      setSelectedMovieId(requestedMovie?.id ?? loadedMovies[0]?.id ?? "");
+      setSelectedMovieId(requestedMovie?.id ?? "");
       setMovieSelectionMessage(
         requestedMovieId && !requestedMovie
           ? "선택한 영화를 찾을 수 없어 직접 선택해주세요."
@@ -279,6 +291,8 @@ export function ImpressionForm() {
       const selectedMovie = {
         id: data.movie.id,
         title: data.movie.title || movie.title,
+        poster_url: movie.poster_url,
+        release_date: movie.release_date,
       };
 
       setMovies((currentMovies) => {
@@ -295,9 +309,7 @@ export function ImpressionForm() {
         return [selectedMovie, ...currentMovies];
       });
       setSelectedMovieId(selectedMovie.id);
-      setMovieSelectionMessage(
-        `"${selectedMovie.title}"을 감상할 영화로 선택했어요.`,
-      );
+      setMovieSelectionMessage("");
       setMovieSearchQuery("");
       setMovieSearchResults([]);
       setHasSearchedMovies(false);
@@ -427,79 +439,32 @@ export function ImpressionForm() {
       <form className="space-y-9" onSubmit={handleSubmit}>
         <div>
           <label
-            htmlFor="movie"
+            htmlFor="movie-search"
             className="text-sm font-medium text-[#f2b482]"
           >
             어떤 영화를 보셨나요?
           </label>
-          <select
-            id="movie"
-            name="movie"
-            value={selectedMovieId}
-            onChange={(event) => {
-              setSelectedMovieId(event.target.value);
-              setMovieSelectionMessage("");
-            }}
-            disabled={isLoadingOptions || movies.length === 0}
-            className="mt-3 w-full rounded-lg border border-[#fff7ea]/12 bg-[#12100f] px-4 py-3 text-[#fff7ea] outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
-          >
-            {movies.length > 0 ? (
-              movies.map((movie) => (
-                <option key={movie.id} value={movie.id}>
-                  {movie.title}
-                </option>
-              ))
-            ) : (
-              <option value="">
-                {isLoadingOptions
-                  ? "영화를 불러오는 중이에요"
-                  : "등록된 영화가 없어요"}
-              </option>
-            )}
-          </select>
-          {!isLoadingOptions && movies.length === 0 ? (
-            <p className="mt-3 text-sm leading-6 text-[#c9ad96]">
-              아직 선택할 수 있는 영화가 없어요. Supabase movies 테이블의
-              seed 데이터를 확인해주세요.
-            </p>
-          ) : null}
-          {movieSelectionMessage ? (
-            <p className="mt-3 rounded-lg border border-[#f0a15f]/20 bg-[#f0a15f]/10 px-4 py-3 text-sm leading-6 text-[#ffd3a3]">
-              {movieSelectionMessage}
-            </p>
-          ) : null}
-          {selectedMovie ? (
-            <div className="mt-4 rounded-lg border border-[#f0a15f]/20 bg-[#f0a15f]/10 px-4 py-3">
-              <p className="text-xs font-medium text-[#f2b482]">
-                선택된 영화
-              </p>
-              <p className="mt-1 text-base font-semibold text-[#fff7ea]">
-                {selectedMovie.title}
-              </p>
-            </div>
-          ) : null}
+          <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+            영화 제목을 검색해 감상을 남겨보세요.
+          </p>
 
-          <div className="mt-5 rounded-lg border border-[#fff7ea]/10 bg-[#fff7ea]/5 p-4">
-            <p className="text-sm font-medium text-[#f2b482]">
-              목록에 없다면 영화 제목으로 찾아보세요
-            </p>
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-              <label className="sr-only" htmlFor="tmdb-movie-search">
-                기록할 영화 검색
-              </label>
+          <div className="mt-4 rounded-lg border border-[#fff7ea]/10 bg-[#fff7ea]/5 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <input
-                id="tmdb-movie-search"
+                ref={movieSearchInputRef}
+                id="movie-search"
                 type="search"
                 value={movieSearchQuery}
                 onChange={(event) => setMovieSearchQuery(event.target.value)}
                 onKeyDown={handleMovieSearchKeyDown}
-                placeholder="기록할 영화를 검색해보세요"
-                className="min-h-12 flex-1 rounded-full border border-[#fff7ea]/12 bg-[#12100f] px-5 py-3 text-[#fff7ea] outline-none transition placeholder:text-[#c9ad96]/70 focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
+                disabled={isLoadingOptions}
+                placeholder="영화 제목을 검색해보세요"
+                className="min-h-12 flex-1 rounded-full border border-[#fff7ea]/12 bg-[#12100f] px-5 py-3 text-[#fff7ea] outline-none transition placeholder:text-[#c9ad96]/70 disabled:cursor-not-allowed disabled:opacity-60 focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
               />
               <Button
                 type="button"
                 variant="secondary"
-                disabled={isSearchingMovies}
+                disabled={isSearchingMovies || isLoadingOptions}
                 onClick={() => void handleMovieSearch()}
                 className="shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -530,7 +495,7 @@ export function ImpressionForm() {
 
             {movieSearchResults.length > 0 ? (
               <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {movieSearchResults.map((movie) => (
+                {movieSearchResults.slice(0, 6).map((movie) => (
                   <article
                     key={movie.tmdb_id}
                     className="flex overflow-hidden rounded-lg border border-[#fff7ea]/10 bg-[#12100f]/48"
@@ -574,6 +539,54 @@ export function ImpressionForm() {
               </div>
             ) : null}
           </div>
+
+          {movieSelectionMessage ? (
+            <p className="mt-4 rounded-lg border border-[#f0a15f]/20 bg-[#f0a15f]/10 px-4 py-3 text-sm leading-6 text-[#ffd3a3]">
+              {movieSelectionMessage}
+            </p>
+          ) : null}
+
+          {selectedMovie ? (
+            <div className="mt-5 overflow-hidden rounded-lg border border-[#f0a15f]/24 bg-[#f0a15f]/10 sm:flex">
+              <div
+                aria-label={`${selectedMovie.title} 포스터`}
+                className="min-h-44 bg-[linear-gradient(145deg,rgba(240,161,95,0.28),rgba(244,199,216,0.14),rgba(18,16,15,0.88))] bg-cover bg-center sm:w-32 sm:shrink-0"
+                role="img"
+                style={
+                  selectedMovie.poster_url
+                    ? { backgroundImage: `url(${selectedMovie.poster_url})` }
+                    : undefined
+                }
+              />
+              <div className="flex flex-1 flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#f2b482]">
+                    선택된 영화
+                  </p>
+                  <p className="mt-2 text-xl font-semibold text-[#fff7ea]">
+                    {selectedMovie.title}
+                  </p>
+                  <p className="mt-1 text-sm text-[#ffd3a3]">
+                    {getReleaseYear(selectedMovie.release_date)}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setMovieSearchQuery("");
+                    setMovieSearchResults([]);
+                    setHasSearchedMovies(false);
+                    setMovieSelectionMessage("");
+                    movieSearchInputRef.current?.focus();
+                  }}
+                  className="min-h-10 px-4 py-2 text-sm"
+                >
+                  다른 영화 찾기
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <fieldset>
@@ -599,7 +612,7 @@ export function ImpressionForm() {
               <p className="rounded-lg border border-[#fff7ea]/10 bg-[#fff7ea]/5 px-4 py-3 text-sm leading-6 text-[#c9ad96]">
                 {isLoadingOptions
                   ? "감정을 불러오는 중이에요."
-                  : "아직 선택할 수 있는 감정이 없어요. Supabase emotions 테이블의 seed 데이터를 확인해주세요."}
+                  : "아직 선택할 수 있는 감정이 없어요. 잠시 후 다시 시도해주세요."}
               </p>
             )}
           </div>
