@@ -29,7 +29,7 @@ const impressionPrinciples = [
 const archiveSteps = [
   {
     title: "영화를 찾고",
-    description: "TMDb 검색으로 기록할 영화를 여운에 담아요.",
+    description: "영화 제목을 검색해 오늘 남은 감상의 자리를 만들어요.",
   },
   {
     title: "감정을 고르고",
@@ -37,7 +37,7 @@ const archiveSteps = [
   },
   {
     title: "감상을 남겨요",
-    description: "한 줄 감상과 기억하고 싶은 장면을 조용히 저장해요.",
+    description: "한 줄 감상과 기억하고 싶은 장면을 가볍게 남겨요.",
   },
 ] as const;
 

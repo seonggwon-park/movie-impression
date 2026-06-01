@@ -104,14 +104,7 @@ export function MovieSearch() {
           payload: data,
         });
 
-        const readableError =
-          data.message && data.detail
-            ? `${data.message} ${data.detail}`
-            : data.message ||
-              data.detail ||
-              "영화 정보를 저장하는 중 문제가 생겼어요.";
-
-        throw new Error(readableError);
+        throw new Error("영화 정보를 준비하는 중 문제가 생겼어요.");
       }
 
       router.push(`/movies/${data.movie.slug || data.movie.id}`);
@@ -120,7 +113,7 @@ export function MovieSearch() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "영화 정보를 저장하는 중 문제가 생겼어요.",
+          : "영화 정보를 준비하는 중 문제가 생겼어요.",
       );
     } finally {
       setSavingTmdbId(null);
@@ -136,13 +129,9 @@ export function MovieSearch() {
               찾고 싶은 영화가 있나요?
             </h2>
             <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
-              TMDb에서 영화를 찾아 여운의 영화 목록에 조용히 담아둘 수 있어요.
+              영화 제목을 검색해 감상을 둘러보세요.
             </p>
           </div>
-
-          <p className="text-sm font-medium leading-6 text-[#f2b482] lg:text-right">
-            검색한 영화는 선택하는 순간 저장돼요.
-          </p>
         </div>
 
         <form className="mt-6 flex flex-col gap-3 sm:flex-row" onSubmit={handleSearch}>
