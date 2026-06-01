@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ButtonLink, Card, EmotionTag } from "@/components/ui";
 import { type EmotionTone, getEmotionTone } from "@/lib/emotions";
@@ -178,69 +179,75 @@ function sortByCreatedAt(movies: MovieView[]) {
 function MovieCard({ movie }: { movie: MovieView }) {
   const releaseYear = movie.releaseYear ?? "개봉 연도 미상";
   const genreText = movie.genres[0] ?? "장르 미상";
+  const href = getMovieHref(movie);
 
   return (
-    <Card key={movie.id} className="group flex h-full flex-col overflow-hidden p-0">
-      <div
-        className="aspect-[16/10] border-b border-[#fff7ea]/10 bg-[linear-gradient(135deg,rgba(240,161,95,0.22),rgba(244,199,216,0.12)_42%,rgba(200,182,255,0.08)_68%,rgba(18,16,15,0.86))] bg-cover bg-center p-5"
-        style={
-          movie.posterUrl
-            ? {
-                backgroundImage: `linear-gradient(180deg,rgba(18,16,15,0.08),rgba(18,16,15,0.84)),url(${movie.posterUrl})`,
-              }
-            : undefined
-        }
-      >
-        <div className="flex h-full flex-col justify-between rounded-md border border-[#fff7ea]/10 bg-[#12100f]/34 p-4 backdrop-blur-[1px]">
-          <p className="text-xs font-medium text-[#f2b482]">남은 장면</p>
-          <div>
-            <p className="text-2xl font-semibold text-[#fff7ea]">
-              {movie.title}
-            </p>
-            <p className="mt-1 text-sm text-[#e7d4c0]">{releaseYear}</p>
+    <Link
+      href={href}
+      aria-label={`${movie.title} 상세 페이지 보기`}
+      className="group block h-full rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+    >
+      <Card className="flex h-full flex-col overflow-hidden p-0 transition group-hover:border-[#f0a15f]/35 group-hover:bg-[#fff7ea]/10">
+        <div
+          className="aspect-[16/10] border-b border-[#fff7ea]/10 bg-[linear-gradient(135deg,rgba(240,161,95,0.22),rgba(244,199,216,0.12)_42%,rgba(200,182,255,0.08)_68%,rgba(18,16,15,0.86))] bg-cover bg-center p-5"
+          style={
+            movie.posterUrl
+              ? {
+                  backgroundImage: `linear-gradient(180deg,rgba(18,16,15,0.08),rgba(18,16,15,0.84)),url(${movie.posterUrl})`,
+                }
+              : undefined
+          }
+        >
+          <div className="flex h-full flex-col justify-between rounded-md border border-[#fff7ea]/10 bg-[#12100f]/34 p-4 backdrop-blur-[1px]">
+            <p className="text-xs font-medium text-[#f2b482]">남은 장면</p>
+            <div>
+              <p className="text-2xl font-semibold text-[#fff7ea]">
+                {movie.title}
+              </p>
+              <p className="mt-1 text-sm text-[#e7d4c0]">{releaseYear}</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex flex-1 flex-col p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 className="text-2xl font-semibold text-[#fff7ea]">
-              {movie.title}
-            </h3>
-            <p className="mt-1 text-sm text-[#c9ad96]">
-              {releaseYear} · {genreText}
-            </p>
+        <div className="flex flex-1 flex-col p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-2xl font-semibold text-[#fff7ea]">
+                {movie.title}
+              </h3>
+              <p className="mt-1 text-sm text-[#c9ad96]">
+                {releaseYear} · {genreText}
+              </p>
+            </div>
+            {movie.mainEmotion ? (
+              <EmotionTag
+                as="span"
+                tone={getEmotionTone(movie.mainEmotion.name)}
+              >
+                {getEmotionLabel(movie.mainEmotion)}
+              </EmotionTag>
+            ) : (
+              <EmotionTag as="span" tone="warm">
+                감상 대기
+              </EmotionTag>
+            )}
           </div>
-          {movie.mainEmotion ? (
-            <EmotionTag as="span" tone={getEmotionTone(movie.mainEmotion.name)}>
-              {getEmotionLabel(movie.mainEmotion)}
-            </EmotionTag>
-          ) : (
-            <EmotionTag as="span" tone="warm">
-              감상 대기
-            </EmotionTag>
-          )}
-        </div>
 
-        <p className="mt-6 flex-1 text-base leading-7 text-[#e7d4c0]">
-          {getOverviewPreview(movie.overview)}
-        </p>
+          <p className="mt-6 flex-1 text-base leading-7 text-[#e7d4c0]">
+            {getOverviewPreview(movie.overview)}
+          </p>
 
-        <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-sm font-medium text-[#f2b482]">
-            감상 {movie.impressionCount.toLocaleString("ko-KR")}개
-          </span>
-          <ButtonLink
-            href={getMovieHref(movie)}
-            className="px-4 py-2 text-sm"
-            variant="secondary"
-          >
-            자세히 보기
-          </ButtonLink>
+          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm font-medium text-[#f2b482]">
+              감상 {movie.impressionCount.toLocaleString("ko-KR")}개
+            </span>
+            <span className="inline-flex w-fit items-center justify-center rounded-full border border-[#fff7ea]/16 px-4 py-2 text-sm font-semibold text-[#e7d4c0] transition group-hover:border-[#f0a15f]/35 group-hover:bg-[#f0a15f]/12 group-hover:text-[#ffd3a3]">
+              자세히 보기
+            </span>
+          </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </Link>
   );
 }
 
@@ -492,30 +499,34 @@ export function MovieBrowser() {
                 </p>
                 <ol className="mt-5 space-y-3">
                   {group.movies.slice(0, 3).map((movie, index) => (
-                    <li
-                      key={`${group.title}-${movie.id}`}
-                      className="flex items-center justify-between gap-4 rounded-lg border border-[#fff7ea]/8 bg-[#12100f]/38 px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-[#fff7ea]">
-                          {index + 1}. {movie.title}
-                        </p>
-                        <p className="mt-1 text-sm text-[#c9ad96]">
-                          감상 {movie.impressionCount.toLocaleString("ko-KR")}개
-                        </p>
-                      </div>
-                      {movie.mainEmotion ? (
-                        <EmotionTag
-                          as="span"
-                          tone={getEmotionTone(movie.mainEmotion.name)}
-                        >
-                          {getEmotionLabel(movie.mainEmotion)}
-                        </EmotionTag>
-                      ) : (
-                        <EmotionTag as="span" tone="warm">
-                          대기
-                        </EmotionTag>
-                      )}
+                    <li key={`${group.title}-${movie.id}`}>
+                      <Link
+                        href={getMovieHref(movie)}
+                        aria-label={`${movie.title} 상세 페이지 보기`}
+                        className="group flex items-center justify-between gap-4 rounded-lg border border-[#fff7ea]/8 bg-[#12100f]/38 px-4 py-3 transition hover:border-[#f0a15f]/28 hover:bg-[#fff7ea]/8 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-[#fff7ea] group-hover:text-[#ffd3a3]">
+                            {index + 1}. {movie.title}
+                          </p>
+                          <p className="mt-1 text-sm text-[#c9ad96]">
+                            감상{" "}
+                            {movie.impressionCount.toLocaleString("ko-KR")}개
+                          </p>
+                        </div>
+                        {movie.mainEmotion ? (
+                          <EmotionTag
+                            as="span"
+                            tone={getEmotionTone(movie.mainEmotion.name)}
+                          >
+                            {getEmotionLabel(movie.mainEmotion)}
+                          </EmotionTag>
+                        ) : (
+                          <EmotionTag as="span" tone="warm">
+                            대기
+                          </EmotionTag>
+                        )}
+                      </Link>
                     </li>
                   ))}
                 </ol>
