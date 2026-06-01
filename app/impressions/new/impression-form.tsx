@@ -15,6 +15,10 @@ import {
   hasSupabaseConfig,
   upsertUserProfile,
 } from "@/lib/supabase";
+import {
+  type WatchMethod,
+  watchMethodOptions,
+} from "@/lib/watch-methods";
 
 type MovieOption = {
   id: string;
@@ -95,9 +99,25 @@ function getOverviewPreview(overview: string | null) {
   return overview.length > 110 ? `${overview.slice(0, 110)}...` : overview;
 }
 
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getRelativeDateInputValue(dayOffset: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + dayOffset);
+
+  return formatDateInputValue(date);
+}
+
 export function ImpressionForm() {
   const router = useRouter();
   const movieSearchInputRef = useRef<HTMLInputElement>(null);
+  const watchedDateInputRef = useRef<HTMLInputElement>(null);
   const isSupabaseConfigured = hasSupabaseConfig();
   const [movies, setMovies] = useState<MovieOption[]>([]);
   const [emotions, setEmotions] = useState<EmotionOption[]>([]);
@@ -106,7 +126,10 @@ export function ImpressionForm() {
   const [oneLine, setOneLine] = useState("");
   const [note, setNote] = useState("");
   const [rating, setRating] = useState("");
-  const [watchedAt, setWatchedAt] = useState("");
+  const [watchedAt, setWatchedAt] = useState(() =>
+    getRelativeDateInputValue(0),
+  );
+  const [watchMethod, setWatchMethod] = useState<WatchMethod | "">("");
   const [isSpoiler, setIsSpoiler] = useState(false);
   const [isLoadingOptions, setIsLoadingOptions] =
     useState(isSupabaseConfigured);
@@ -385,6 +408,7 @@ export function ImpressionForm() {
         rating: rating ? Number(rating) : null,
         is_spoiler: isSpoiler,
         watched_at: watchedAt || null,
+        watch_method: watchMethod || null,
       })
       .select("id")
       .single();
@@ -688,9 +712,36 @@ export function ImpressionForm() {
               htmlFor="watched-date"
               className="text-sm font-medium text-[#c9ad96]"
             >
-              본 날짜
+              언제 보셨나요?
             </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setWatchedAt(getRelativeDateInputValue(0))}
+                className="min-h-10 px-4 py-2 text-sm"
+              >
+                오늘
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setWatchedAt(getRelativeDateInputValue(-1))}
+                className="min-h-10 px-4 py-2 text-sm"
+              >
+                어제
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => watchedDateInputRef.current?.focus()}
+                className="min-h-10 px-4 py-2 text-sm"
+              >
+                직접 선택
+              </Button>
+            </div>
             <input
+              ref={watchedDateInputRef}
               id="watched-date"
               name="watchedDate"
               type="date"
@@ -700,6 +751,31 @@ export function ImpressionForm() {
             />
           </div>
         </div>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-[#f2b482]">
+            어디에서 보셨나요?
+          </legend>
+          <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+            기억나면 가볍게 골라주세요.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {watchMethodOptions.map((method) => (
+              <EmotionTag
+                key={method.value}
+                selected={watchMethod === method.value}
+                tone="warm"
+                onClick={() =>
+                  setWatchMethod((current) =>
+                    current === method.value ? "" : method.value,
+                  )
+                }
+              >
+                {method.label}
+              </EmotionTag>
+            ))}
+          </div>
+        </fieldset>
 
         <label className="flex items-center gap-3 rounded-lg border border-[#fff7ea]/10 bg-[#fff7ea]/5 px-4 py-3 text-sm leading-6 text-[#e7d4c0]">
           <input

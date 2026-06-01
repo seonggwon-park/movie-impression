@@ -15,6 +15,7 @@ import {
   getSupabaseBrowserClient,
   hasSupabaseConfig,
 } from "@/lib/supabase";
+import { getWatchMethodLabel } from "@/lib/watch-methods";
 
 type MaybeArray<T> = T | T[] | null;
 
@@ -38,6 +39,7 @@ type SupabaseImpressionRow = {
   note: string | null;
   rating: number | null;
   watched_at: string | null;
+  watch_method: string | null;
   created_at: string | null;
   movies: MaybeArray<SupabaseMovieRow>;
   impression_emotions:
@@ -67,6 +69,7 @@ type ImpressionView = {
   note: string | null;
   rating: number | null;
   watchedAt: string | null;
+  watchMethod: string | null;
   createdAt: string | null;
   movie: MovieView;
   emotions: EmotionView[];
@@ -144,6 +147,7 @@ function normalizeImpression(row: SupabaseImpressionRow): ImpressionView {
     note: row.note,
     rating: row.rating,
     watchedAt: row.watched_at,
+    watchMethod: row.watch_method,
     createdAt: row.created_at,
     movie: {
       id: movie?.id ?? "",
@@ -236,6 +240,7 @@ export function MyArchive() {
           note,
           rating,
           watched_at,
+          watch_method,
           created_at,
           movies (
             id,
@@ -468,6 +473,9 @@ export function MyArchive() {
                       );
                       const watchedDate = formatDate(impression.watchedAt);
                       const createdDate = formatDate(impression.createdAt);
+                      const watchMethodLabel = getWatchMethodLabel(
+                        impression.watchMethod,
+                      );
 
                       return (
                         <Card
@@ -549,6 +557,9 @@ export function MyArchive() {
                                   ) : null}
                                   {impression.rating ? (
                                     <span>별점 {impression.rating}</span>
+                                  ) : null}
+                                  {watchMethodLabel ? (
+                                    <span>시청 방법: {watchMethodLabel}</span>
                                   ) : null}
                                 </div>
                                 <div className="flex flex-wrap gap-3">

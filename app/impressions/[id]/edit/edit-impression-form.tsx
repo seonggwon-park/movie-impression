@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, ButtonLink, Card, EmotionTag } from "@/components/ui";
 import type { EmotionTone } from "@/lib/emotions";
@@ -8,6 +8,11 @@ import {
   getSupabaseBrowserClient,
   hasSupabaseConfig,
 } from "@/lib/supabase";
+import {
+  isWatchMethod,
+  type WatchMethod,
+  watchMethodOptions,
+} from "@/lib/watch-methods";
 
 type MaybeArray<T> = T | T[] | null;
 
@@ -32,6 +37,7 @@ type SupabaseImpressionRow = {
   rating: number | null;
   is_spoiler: boolean | null;
   watched_at: string | null;
+  watch_method: string | null;
   movies: MaybeArray<SupabaseMovieRow>;
   impression_emotions:
     | Array<{
@@ -102,10 +108,26 @@ function getReleaseYear(value: string | null) {
   return value ? value.slice(0, 4) : null;
 }
 
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getRelativeDateInputValue(dayOffset: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + dayOffset);
+
+  return formatDateInputValue(date);
+}
+
 export function EditImpressionForm({
   impressionId,
 }: EditImpressionFormProps) {
   const router = useRouter();
+  const watchedDateInputRef = useRef<HTMLInputElement>(null);
   const isSupabaseConfigured = hasSupabaseConfig();
   const [movie, setMovie] = useState<MovieView | null>(null);
   const [emotions, setEmotions] = useState<EmotionOption[]>([]);
@@ -114,6 +136,7 @@ export function EditImpressionForm({
   const [note, setNote] = useState("");
   const [rating, setRating] = useState("");
   const [watchedAt, setWatchedAt] = useState("");
+  const [watchMethod, setWatchMethod] = useState<WatchMethod | "">("");
   const [isSpoiler, setIsSpoiler] = useState(false);
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
   const [isSaving, setIsSaving] = useState(false);
@@ -157,6 +180,7 @@ export function EditImpressionForm({
             rating,
             is_spoiler,
             watched_at,
+            watch_method,
             movies (
               id,
               title,
@@ -231,6 +255,7 @@ export function EditImpressionForm({
       setNote(row.note ?? "");
       setRating(row.rating ? String(row.rating) : "");
       setWatchedAt(row.watched_at ?? "");
+      setWatchMethod(isWatchMethod(row.watch_method) ? row.watch_method : "");
       setIsSpoiler(Boolean(row.is_spoiler));
       setIsLoading(false);
     }
@@ -295,6 +320,7 @@ export function EditImpressionForm({
         rating: rating ? Number(rating) : null,
         is_spoiler: isSpoiler,
         watched_at: watchedAt || null,
+        watch_method: watchMethod || null,
       })
       .eq("id", impressionId)
       .eq("user_id", userData.user.id)
@@ -500,9 +526,36 @@ export function EditImpressionForm({
               htmlFor="watched-date"
               className="text-sm font-medium text-[#c9ad96]"
             >
-              본 날짜
+              언제 보셨나요?
             </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setWatchedAt(getRelativeDateInputValue(0))}
+                className="min-h-10 px-4 py-2 text-sm"
+              >
+                오늘
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setWatchedAt(getRelativeDateInputValue(-1))}
+                className="min-h-10 px-4 py-2 text-sm"
+              >
+                어제
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => watchedDateInputRef.current?.focus()}
+                className="min-h-10 px-4 py-2 text-sm"
+              >
+                직접 선택
+              </Button>
+            </div>
             <input
+              ref={watchedDateInputRef}
               id="watched-date"
               name="watchedDate"
               type="date"
@@ -512,6 +565,31 @@ export function EditImpressionForm({
             />
           </div>
         </div>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-[#f2b482]">
+            어디에서 보셨나요?
+          </legend>
+          <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+            기억나면 가볍게 골라주세요.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {watchMethodOptions.map((method) => (
+              <EmotionTag
+                key={method.value}
+                selected={watchMethod === method.value}
+                tone="warm"
+                onClick={() =>
+                  setWatchMethod((current) =>
+                    current === method.value ? "" : method.value,
+                  )
+                }
+              >
+                {method.label}
+              </EmotionTag>
+            ))}
+          </div>
+        </fieldset>
 
         <label className="flex items-center gap-3 rounded-lg border border-[#fff7ea]/10 bg-[#fff7ea]/5 px-4 py-3 text-sm leading-6 text-[#e7d4c0]">
           <input
