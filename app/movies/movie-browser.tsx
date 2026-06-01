@@ -53,6 +53,12 @@ type EmotionFilterView = {
   emoji: string | null;
 };
 
+type MovieLinkTarget = {
+  id: string;
+  title: string;
+  slug: string | null;
+};
+
 type MovieView = {
   id: string;
   title: string;
@@ -67,6 +73,21 @@ type MovieView = {
   mainEmotion: EmotionView | null;
   emotionNames: string[];
   emotionVariety: number;
+};
+
+type PopularImpressionView = {
+  id: string;
+  oneLine: string;
+  note: string | null;
+  watchedAt: string | null;
+  movie: MovieLinkTarget;
+  emotions: EmotionView[];
+  todayLikeCount: number;
+};
+
+type PopularImpressionsResponse = {
+  impressions?: PopularImpressionView[];
+  message?: string;
 };
 
 const emotionOrder = new Map(
@@ -88,7 +109,7 @@ function getReleaseYear(value: string | null) {
   return value ? value.slice(0, 4) : null;
 }
 
-function getMovieHref(movie: MovieView) {
+function getMovieHref(movie: MovieLinkTarget) {
   return `/movies/${movie.slug || movie.id}`;
 }
 
@@ -98,6 +119,21 @@ function getOverviewPreview(overview: string | null) {
   }
 
   return overview.length > 120 ? `${overview.slice(0, 120)}...` : overview;
+}
+
+function getNotePreview(note: string) {
+  return note.length > 80 ? `${note.slice(0, 80)}...` : note;
+}
+
+function formatCompactDate(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "long",
+    day: "numeric",
+  }).format(new Date(value));
 }
 
 function getEmotionLabel(emotion: EmotionView) {
@@ -221,15 +257,6 @@ function createMovieViews(
   });
 }
 
-function sortByCreatedAt(movies: MovieView[]) {
-  return [...movies].sort((a, b) => {
-    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-
-    return bTime - aTime;
-  });
-}
-
 function MovieCard({
   movie,
   showMainEmotion,
@@ -311,6 +338,100 @@ function MovieCard({
   );
 }
 
+function TodayPopularImpressionsCard({
+  impressions,
+  isLoading,
+  errorMessage,
+}: {
+  impressions: PopularImpressionView[];
+  isLoading: boolean;
+  errorMessage: string;
+}) {
+  return (
+    <Card className="p-5">
+      <h2 className="text-lg font-semibold text-[#fff7ea]">
+        오늘 공감 많이 받은 감상
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+        오늘 사람들이 많이 공감한 영화 감상이에요.
+      </p>
+
+      {isLoading ? (
+        <p className="mt-5 rounded-lg border border-[#fff7ea]/8 bg-[#12100f]/38 px-4 py-3 text-sm leading-6 text-[#c9ad96]">
+          오늘의 공감을 불러오는 중이에요.
+        </p>
+      ) : errorMessage ? (
+        <p className="mt-5 rounded-lg border border-[#f4c7d8]/24 bg-[#f4c7d8]/10 px-4 py-3 text-sm leading-6 text-[#f4c7d8]">
+          {errorMessage}
+        </p>
+      ) : impressions.length === 0 ? (
+        <div className="mt-5 rounded-lg border border-dashed border-[#fff7ea]/12 bg-[#12100f]/32 px-4 py-5">
+          <p className="text-sm font-medium text-[#fff7ea]">
+            아직 오늘 공감 받은 감상이 없어요.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+            마음에 닿는 감상에 공감을 남겨보세요.
+          </p>
+        </div>
+      ) : (
+        <ol className="mt-5 space-y-3">
+          {impressions.map((impression, index) => {
+            const watchedDate = formatCompactDate(impression.watchedAt);
+
+            return (
+              <li key={impression.id}>
+                <Link
+                  href={getMovieHref(impression.movie)}
+                  aria-label={`${impression.movie.title}의 감상 보기`}
+                  className="group block rounded-lg border border-[#fff7ea]/8 bg-[#12100f]/38 px-4 py-4 transition hover:border-[#f0a15f]/28 hover:bg-[#fff7ea]/8 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm text-[#c9ad96]">
+                        {index + 1}. {impression.movie.title}
+                      </p>
+                      <p className="mt-2 text-base font-medium leading-7 text-[#fff7ea] group-hover:text-[#ffd3a3]">
+                        &quot;{impression.oneLine}&quot;
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-[#f0a15f]/35 bg-[#f0a15f]/12 px-3 py-1 text-xs font-semibold text-[#ffd3a3]">
+                      공감{" "}
+                      {impression.todayLikeCount.toLocaleString("ko-KR")}
+                    </span>
+                  </div>
+
+                  {impression.note ? (
+                    <p className="mt-3 text-sm leading-6 text-[#e7d4c0]">
+                      {getNotePreview(impression.note)}
+                    </p>
+                  ) : null}
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {impression.emotions.map((emotion) => (
+                      <EmotionTag
+                        as="span"
+                        key={emotion.id}
+                        tone={getEmotionTone(emotion.name)}
+                      >
+                        {getEmotionLabel(emotion)}
+                      </EmotionTag>
+                    ))}
+                    {watchedDate ? (
+                      <span className="rounded-full bg-[#fff7ea]/8 px-3 py-1 text-xs text-[#c9ad96]">
+                        {watchedDate}
+                      </span>
+                    ) : null}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Card>
+  );
+}
+
 export function MovieBrowser() {
   const pathname = usePathname();
   const router = useRouter();
@@ -324,6 +445,13 @@ export function MovieBrowser() {
       ? ""
       : "Supabase 환경변수가 설정되지 않아 저장된 영화 목록을 불러올 수 없어요.",
   );
+  const [popularImpressions, setPopularImpressions] = useState<
+    PopularImpressionView[]
+  >([]);
+  const [isPopularImpressionsLoading, setIsPopularImpressionsLoading] =
+    useState(isSupabaseConfigured);
+  const [popularImpressionsErrorMessage, setPopularImpressionsErrorMessage] =
+    useState("");
   const emotionFilters = useMemo(
     () =>
       sortEmotionFilters(
@@ -423,7 +551,48 @@ export function MovieBrowser() {
       setIsLoading(false);
     }
 
+    async function loadTodayPopularImpressions() {
+      setIsPopularImpressionsLoading(true);
+      setPopularImpressionsErrorMessage("");
+
+      try {
+        const response = await fetch("/api/impressions/today-popular", {
+          cache: "no-store",
+        });
+        const data = (await response
+          .json()
+          .catch(() => null)) as PopularImpressionsResponse | null;
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (!response.ok) {
+          console.error("Today popular impressions response failed", data);
+          setPopularImpressionsErrorMessage(
+            data?.message ?? "오늘 공감 받은 감상을 불러오지 못했어요.",
+          );
+          return;
+        }
+
+        setPopularImpressions(data?.impressions ?? []);
+      } catch (error) {
+        console.error("Today popular impressions fetch failed", error);
+
+        if (isMounted) {
+          setPopularImpressionsErrorMessage(
+            "오늘 공감 받은 감상을 불러오지 못했어요.",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsPopularImpressionsLoading(false);
+        }
+      }
+    }
+
     loadMovies();
+    loadTodayPopularImpressions();
 
     return () => {
       isMounted = false;
@@ -460,7 +629,6 @@ export function MovieBrowser() {
           movieHasEveryEmotion(movie, selectedEmotionNames),
         )
       : movies;
-    const recentlyAdded = sortByCreatedAt(browsedMovies);
     const mostImpressed = [...browsedMovies].sort(
       (a, b) => b.impressionCount - a.impressionCount,
     );
@@ -471,11 +639,6 @@ export function MovieBrowser() {
     );
 
     return [
-      {
-        title: "최근 추가된 영화",
-        description: "여운에 실제로 등록된 영화",
-        movies: recentlyAdded,
-      },
       {
         title: "감상 많이 남긴 영화",
         description: "한 줄 감상이 가장 많이 쌓인 영화",
@@ -602,6 +765,11 @@ export function MovieBrowser() {
       ) : (
         <>
           <section className="mt-14 grid gap-4 lg:grid-cols-3">
+            <TodayPopularImpressionsCard
+              impressions={popularImpressions}
+              isLoading={isPopularImpressionsLoading}
+              errorMessage={popularImpressionsErrorMessage}
+            />
             {rankingGroups.map((group) => (
               <Card key={group.title} className="p-5">
                 <h2 className="text-lg font-semibold text-[#fff7ea]">
