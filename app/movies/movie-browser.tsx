@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ButtonLink, Card, EmotionTag } from "@/components/ui";
-import { type EmotionTone, getEmotionTone } from "@/lib/emotions";
+import {
+  emotionOptions,
+  getEmotionTone,
+  type EmotionOption,
+} from "@/lib/emotions";
 import {
   getSupabaseBrowserClient,
   hasSupabaseConfig,
@@ -44,6 +48,11 @@ type EmotionView = {
   emoji: string | null;
 };
 
+type EmotionFilterView = {
+  name: string;
+  emoji: string | null;
+};
+
 type MovieView = {
   id: string;
   title: string;
@@ -60,21 +69,12 @@ type MovieView = {
   emotionVariety: number;
 };
 
-type EmotionFilter = {
-  label: string;
-  emotionName: string | null;
-  tone: EmotionTone;
-};
-
-const emotionFilters = [
-  { label: "전체", emotionName: null, tone: "warm" },
-  { label: "먹먹한", emotionName: "먹먹함", tone: "warm" },
-  { label: "설레는", emotionName: "설렘", tone: "rose" },
-  { label: "위로되는", emotionName: "위로됨", tone: "violet" },
-  { label: "통쾌한", emotionName: "통쾌함", tone: "warm" },
-  { label: "찝찝한", emotionName: "찝찝함", tone: "violet" },
-  { label: "여운 남는", emotionName: "여운 남음", tone: "warm" },
-] satisfies EmotionFilter[];
+const emotionOrder = new Map(
+  emotionOptions.map((emotion: EmotionOption, index) => [
+    emotion.label,
+    index,
+  ]),
+);
 
 function getSingleRelation<T>(value: MaybeArray<T>) {
   if (Array.isArray(value)) {
@@ -102,6 +102,60 @@ function getOverviewPreview(overview: string | null) {
 
 function getEmotionLabel(emotion: EmotionView) {
   return emotion.emoji ? `${emotion.emoji} ${emotion.name}` : emotion.name;
+}
+
+function getEmotionFilterLabel(emotion: EmotionFilterView) {
+  return emotion.emoji ? `${emotion.emoji} ${emotion.name}` : emotion.name;
+}
+
+function sortEmotionFilters(emotions: EmotionFilterView[]) {
+  return [...emotions].sort((a, b) => {
+    const aOrder = emotionOrder.get(a.name) ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = emotionOrder.get(b.name) ?? Number.MAX_SAFE_INTEGER;
+
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+
+    return a.name.localeCompare(b.name, "ko-KR");
+  });
+}
+
+function createFallbackEmotionFilters() {
+  return emotionOptions.map((emotion) => ({
+    name: emotion.label,
+    emoji: null,
+  }));
+}
+
+function parseSelectedEmotionNames(
+  rawEmotionValue: string,
+  availableEmotionNames: Set<string>,
+) {
+  if (!rawEmotionValue) {
+    return [];
+  }
+
+  return rawEmotionValue
+    .split(",")
+    .map((emotionName) => emotionName.trim())
+    .filter((emotionName, index, emotionNames) => {
+      return (
+        availableEmotionNames.has(emotionName) &&
+        emotionNames.indexOf(emotionName) === index
+      );
+    });
+}
+
+function movieHasEveryEmotion(
+  movie: MovieView,
+  selectedEmotionNames: string[],
+) {
+  const movieEmotionNames = new Set(movie.emotionNames);
+
+  return selectedEmotionNames.every((emotionName) =>
+    movieEmotionNames.has(emotionName),
+  );
 }
 
 function createMovieViews(
@@ -176,7 +230,13 @@ function sortByCreatedAt(movies: MovieView[]) {
   });
 }
 
-function MovieCard({ movie }: { movie: MovieView }) {
+function MovieCard({
+  movie,
+  showMainEmotion,
+}: {
+  movie: MovieView;
+  showMainEmotion: boolean;
+}) {
   const releaseYear = movie.releaseYear ?? "개봉 연도 미상";
   const genreText = movie.genres[0] ?? "장르 미상";
   const href = getMovieHref(movie);
@@ -219,18 +279,18 @@ function MovieCard({ movie }: { movie: MovieView }) {
                 {releaseYear} · {genreText}
               </p>
             </div>
-            {movie.mainEmotion ? (
+            {showMainEmotion && movie.mainEmotion ? (
               <EmotionTag
                 as="span"
                 tone={getEmotionTone(movie.mainEmotion.name)}
               >
                 {getEmotionLabel(movie.mainEmotion)}
               </EmotionTag>
-            ) : (
+            ) : showMainEmotion ? (
               <EmotionTag as="span" tone="warm">
                 감상 대기
               </EmotionTag>
-            )}
+            ) : null}
           </div>
 
           <p className="mt-6 flex-1 text-base leading-7 text-[#e7d4c0]">
@@ -257,18 +317,35 @@ export function MovieBrowser() {
   const searchParams = useSearchParams();
   const isSupabaseConfigured = hasSupabaseConfig();
   const [movies, setMovies] = useState<MovieView[]>([]);
+  const [emotions, setEmotions] = useState<EmotionFilterView[]>([]);
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
   const [errorMessage, setErrorMessage] = useState(
     isSupabaseConfigured
       ? ""
       : "Supabase 환경변수가 설정되지 않아 저장된 영화 목록을 불러올 수 없어요.",
   );
-  const requestedEmotionName = searchParams.get("emotion");
-  const selectedEmotionName = emotionFilters.some(
-    (filter) => filter.emotionName === requestedEmotionName,
-  )
-    ? requestedEmotionName
-    : null;
+  const emotionFilters = useMemo(
+    () =>
+      sortEmotionFilters(
+        emotions.length > 0 ? emotions : createFallbackEmotionFilters(),
+      ),
+    [emotions],
+  );
+  const availableEmotionNames = useMemo(
+    () => new Set(emotionFilters.map((emotion) => emotion.name)),
+    [emotionFilters],
+  );
+  const requestedEmotionValue =
+    searchParams.get("emotions") ?? searchParams.get("emotion") ?? "";
+  const selectedEmotionNames = useMemo(
+    () => parseSelectedEmotionNames(requestedEmotionValue, availableEmotionNames),
+    [availableEmotionNames, requestedEmotionValue],
+  );
+  const selectedEmotionNameSet = useMemo(
+    () => new Set(selectedEmotionNames),
+    [selectedEmotionNames],
+  );
+  const hasSelectedEmotionFilters = selectedEmotionNames.length > 0;
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -279,14 +356,15 @@ export function MovieBrowser() {
     let isMounted = true;
 
     async function loadMovies() {
-      const [moviesResult, impressionsResult] = await Promise.all([
-        supabase
-          .from("movies")
-          .select(
-            "id, title, slug, overview, poster_url, release_date, genres, created_at",
-          )
-          .order("created_at", { ascending: false }),
-        supabase.from("impressions").select(`
+      const [moviesResult, impressionsResult, emotionsResult] =
+        await Promise.all([
+          supabase
+            .from("movies")
+            .select(
+              "id, title, slug, overview, poster_url, release_date, genres, created_at",
+            )
+            .order("created_at", { ascending: false }),
+          supabase.from("impressions").select(`
           movie_id,
           impression_emotions (
             emotions (
@@ -296,7 +374,8 @@ export function MovieBrowser() {
             )
           )
         `),
-      ]);
+          supabase.from("emotions").select("id, name, emoji").order("name"),
+        ]);
 
       if (!isMounted) {
         return;
@@ -318,10 +397,27 @@ export function MovieBrowser() {
         );
       }
 
+      if (emotionsResult.error) {
+        console.error(
+          "Supabase emotions filter load failed",
+          emotionsResult.error,
+        );
+      }
+
       setMovies(
         createMovieViews(
           (moviesResult.data ?? []) as SupabaseMovieRow[],
           (impressionsResult.data ?? []) as SupabaseImpressionRow[],
+        ),
+      );
+      setEmotions(
+        sortEmotionFilters(
+          ((emotionsResult.data ?? []) as SupabaseEmotionRow[]).map(
+            (emotion) => ({
+              name: emotion.name,
+              emoji: emotion.emoji,
+            }),
+          ),
         ),
       );
       setIsLoading(false);
@@ -336,11 +432,20 @@ export function MovieBrowser() {
 
   function handleSelectEmotion(emotionName: string | null) {
     const params = new URLSearchParams(searchParams.toString());
+    params.delete("emotion");
 
-    if (emotionName) {
-      params.set("emotion", emotionName);
+    if (!emotionName) {
+      params.delete("emotions");
     } else {
-      params.delete("emotion");
+      const nextEmotionNames = selectedEmotionNameSet.has(emotionName)
+        ? selectedEmotionNames.filter((name) => name !== emotionName)
+        : [...selectedEmotionNames, emotionName];
+
+      if (nextEmotionNames.length > 0) {
+        params.set("emotions", nextEmotionNames.join(","));
+      } else {
+        params.delete("emotions");
+      }
     }
 
     const queryString = params.toString();
@@ -350,8 +455,10 @@ export function MovieBrowser() {
   }
 
   const rankingGroups = useMemo(() => {
-    const browsedMovies = selectedEmotionName
-      ? movies.filter((movie) => movie.emotionNames.includes(selectedEmotionName))
+    const browsedMovies = hasSelectedEmotionFilters
+      ? movies.filter((movie) =>
+          movieHasEveryEmotion(movie, selectedEmotionNames),
+        )
       : movies;
     const recentlyAdded = sortByCreatedAt(browsedMovies);
     const mostImpressed = [...browsedMovies].sort(
@@ -380,35 +487,31 @@ export function MovieBrowser() {
         movies: mostVaried,
       },
     ];
-  }, [movies, selectedEmotionName]);
+  }, [hasSelectedEmotionFilters, movies, selectedEmotionNames]);
 
   const filteredMovies = useMemo(
     () =>
-      selectedEmotionName
-        ? movies.filter((movie) => movie.emotionNames.includes(selectedEmotionName))
+      hasSelectedEmotionFilters
+        ? movies.filter((movie) =>
+            movieHasEveryEmotion(movie, selectedEmotionNames),
+          )
         : movies,
-    [movies, selectedEmotionName],
+    [hasSelectedEmotionFilters, movies, selectedEmotionNames],
   );
 
   const movieCountsByEmotion = useMemo(() => {
     const counts = new Map<string, number>();
 
-    emotionFilters.forEach((filter) => {
-      if (!filter.emotionName) {
-        return;
-      }
-
-      const emotionName = filter.emotionName;
-
+    emotionFilters.forEach((emotion) => {
       counts.set(
-        emotionName,
-        movies.filter((movie) => movie.emotionNames.includes(emotionName))
+        emotion.name,
+        movies.filter((movie) => movie.emotionNames.includes(emotion.name))
           .length,
       );
     });
 
     return counts;
-  }, [movies]);
+  }, [emotionFilters, movies]);
 
   if (isLoading) {
     return (
@@ -454,33 +557,43 @@ export function MovieBrowser() {
           감정으로 둘러보기
         </h2>
         <div className="mt-4 flex flex-wrap gap-3">
-          {emotionFilters.map((filter) => {
-            const count = filter.emotionName
-              ? (movieCountsByEmotion.get(filter.emotionName) ?? 0)
-              : movies.length;
-            const isSelected = selectedEmotionName === filter.emotionName;
-
-            return (
-              <EmotionTag
-                key={filter.label}
-                selected={isSelected}
-                tone={filter.tone}
-                onClick={() => handleSelectEmotion(filter.emotionName)}
-              >
-                {filter.label} {count.toLocaleString("ko-KR")}
-              </EmotionTag>
-            );
-          })}
+          <EmotionTag
+            selected={!hasSelectedEmotionFilters}
+            tone="warm"
+            onClick={() => handleSelectEmotion(null)}
+          >
+            전체 {movies.length.toLocaleString("ko-KR")}
+          </EmotionTag>
+          {emotionFilters.map((emotion) => (
+            <EmotionTag
+              key={emotion.name}
+              selected={selectedEmotionNameSet.has(emotion.name)}
+              tone={getEmotionTone(emotion.name)}
+              onClick={() => handleSelectEmotion(emotion.name)}
+            >
+              {getEmotionFilterLabel(emotion)}{" "}
+              {(movieCountsByEmotion.get(emotion.name) ?? 0).toLocaleString(
+                "ko-KR",
+              )}
+            </EmotionTag>
+          ))}
         </div>
+        <p className="mt-3 text-sm leading-6 text-[#c9ad96]">
+          감정을 여러 개 고르면 모두 해당하는 영화만 보여드려요.
+        </p>
       </section>
 
       {filteredMovies.length === 0 ? (
         <Card className="mt-12 border-dashed bg-[#fff7ea]/5 p-8 text-center">
           <p className="text-2xl font-semibold text-[#fff7ea]">
-            아직 이 감정으로 남겨진 영화가 없어요.
+            {selectedEmotionNames.length > 1
+              ? "선택한 감정을 모두 가진 영화가 아직 없어요."
+              : "아직 이 감정으로 남겨진 영화가 없어요."}
           </p>
           <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#c9ad96]">
-            다른 감정을 골라보거나, 첫 감상을 남겨보세요.
+            {selectedEmotionNames.length > 1
+              ? "감정을 하나 줄이거나, 첫 감상을 남겨보세요."
+              : "다른 감정을 골라보거나, 첫 감상을 남겨보세요."}
           </p>
           <ButtonLink href="/impressions/new" className="mt-7">
             첫 감상 남기기
@@ -514,18 +627,18 @@ export function MovieBrowser() {
                             {movie.impressionCount.toLocaleString("ko-KR")}개
                           </p>
                         </div>
-                        {movie.mainEmotion ? (
+                        {!hasSelectedEmotionFilters && movie.mainEmotion ? (
                           <EmotionTag
                             as="span"
                             tone={getEmotionTone(movie.mainEmotion.name)}
                           >
                             {getEmotionLabel(movie.mainEmotion)}
                           </EmotionTag>
-                        ) : (
+                        ) : !hasSelectedEmotionFilters ? (
                           <EmotionTag as="span" tone="warm">
                             대기
                           </EmotionTag>
-                        )}
+                        ) : null}
                       </Link>
                     </li>
                   ))}
@@ -554,7 +667,11 @@ export function MovieBrowser() {
 
             <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filteredMovies.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} />
+                <MovieCard
+                  key={movie.id}
+                  movie={movie}
+                  showMainEmotion={!hasSelectedEmotionFilters}
+                />
               ))}
             </div>
           </section>
