@@ -58,6 +58,11 @@ type SupabaseImpressionRow = {
     | null;
 };
 
+type SupabaseImpressionLikeRow = {
+  impression_id: string;
+  user_id: string;
+};
+
 type SupabaseCriticReviewRow = {
   id: string;
   critic_name: string | null;
@@ -103,6 +108,8 @@ type ImpressionView = {
   watchMethod: string | null;
   createdAt: string | null;
   emotions: EmotionView[];
+  likeCount: number;
+  likedByCurrentUser: boolean;
 };
 
 type CriticReviewView = {
@@ -244,6 +251,38 @@ function isDuplicateReportError(error: { code?: string; message: string }) {
   );
 }
 
+function isDuplicateLikeError(error: { code?: string; message: string }) {
+  return (
+    error.code === "23505" ||
+    error.message.includes("impression_likes_impression_user_unique") ||
+    error.message.toLowerCase().includes("duplicate")
+  );
+}
+
+function addLikeStateToImpressions(
+  impressions: ImpressionView[],
+  likes: SupabaseImpressionLikeRow[],
+  currentUserId: string | null,
+) {
+  const likeCounts = likes.reduce<Record<string, number>>((counts, like) => {
+    counts[like.impression_id] = (counts[like.impression_id] ?? 0) + 1;
+    return counts;
+  }, {});
+  const currentUserLikeIds = new Set(
+    currentUserId
+      ? likes
+          .filter((like) => like.user_id === currentUserId)
+          .map((like) => like.impression_id)
+      : [],
+  );
+
+  return impressions.map((impression) => ({
+    ...impression,
+    likeCount: likeCounts[impression.id] ?? 0,
+    likedByCurrentUser: currentUserLikeIds.has(impression.id),
+  }));
+}
+
 function normalizeMovie(row: SupabaseMovieRow): MovieView {
   return {
     id: row.id,
@@ -277,6 +316,8 @@ function normalizeImpression(row: SupabaseImpressionRow): ImpressionView {
     watchMethod: row.watch_method,
     createdAt: row.created_at,
     emotions,
+    likeCount: 0,
+    likedByCurrentUser: false,
   };
 }
 
@@ -427,6 +468,10 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
     [],
   );
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [likingImpressionId, setLikingImpressionId] = useState<string | null>(
+    null,
+  );
+  const [likeErrorMessage, setLikeErrorMessage] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -533,7 +578,9 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         );
       }
 
-      setCurrentUserId(userResult.data.user?.id ?? null);
+      const currentUser = userResult.data.user ?? null;
+
+      setCurrentUserId(currentUser?.id ?? null);
 
       const relatedErrors = [
         impressionsResult.error,
@@ -551,14 +598,42 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         );
       }
 
+      const impressions = (
+        (impressionsResult.data ?? []) as SupabaseImpressionRow[]
+      ).map(normalizeImpression);
+      let impressionsWithLikes = impressions;
+
+      if (currentUser && impressions.length > 0) {
+        const { data: likeRows, error: likesError } = await supabase
+          .from("impression_likes")
+          .select("impression_id, user_id")
+          .in(
+            "impression_id",
+            impressions.map((impression) => impression.id),
+          );
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (likesError) {
+          console.error("Supabase impression likes load failed", likesError);
+        } else {
+          impressionsWithLikes = addLikeStateToImpressions(
+            impressions,
+            (likeRows ?? []) as SupabaseImpressionLikeRow[],
+            currentUser.id,
+          );
+        }
+      }
+
       const bookingLinks = (
         (bookingLinksResult.data ?? []) as SupabaseBookingLinkRow[]
       ).map(normalizeBookingLink);
 
       setDetail({
         movie,
-        impressions: ((impressionsResult.data ?? []) as SupabaseImpressionRow[])
-          .map(normalizeImpression),
+        impressions: impressionsWithLikes,
         criticReviews: (
           (criticReviewsResult.data ?? []) as SupabaseCriticReviewRow[]
         ).map(normalizeCriticReview),
@@ -695,6 +770,128 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
     setReportReason("");
     setReportDetail("");
     setIsSubmittingReport(false);
+  }
+
+  function updateImpressionLikeState(
+    impressionId: string,
+    likedByCurrentUser: boolean,
+  ) {
+    setDetail((currentDetail) => {
+      if (!currentDetail) {
+        return currentDetail;
+      }
+
+      return {
+        ...currentDetail,
+        impressions: currentDetail.impressions.map((impression) => {
+          if (impression.id !== impressionId) {
+            return impression;
+          }
+
+          if (impression.likedByCurrentUser === likedByCurrentUser) {
+            return impression;
+          }
+
+          return {
+            ...impression,
+            likedByCurrentUser,
+            likeCount: likedByCurrentUser
+              ? impression.likeCount + 1
+              : Math.max(0, impression.likeCount - 1),
+          };
+        }),
+      };
+    });
+  }
+
+  async function handleToggleLike(impression: ImpressionView) {
+    if (likingImpressionId) {
+      return;
+    }
+
+    setLikeErrorMessage("");
+
+    if (!isSupabaseConfigured) {
+      setLikeErrorMessage("공감을 저장하는 중 문제가 생겼어요.");
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Supabase getUser failed before impression like", userError);
+    }
+
+    if (!userData.user) {
+      setCurrentUserId(null);
+      setLikeErrorMessage("로그인 후 공감할 수 있어요.");
+      return;
+    }
+
+    if (impression.userId === userData.user.id) {
+      return;
+    }
+
+    setCurrentUserId(userData.user.id);
+    setLikingImpressionId(impression.id);
+
+    if (impression.likedByCurrentUser) {
+      const { error } = await supabase
+        .from("impression_likes")
+        .delete()
+        .eq("impression_id", impression.id)
+        .eq("user_id", userData.user.id);
+
+      setLikingImpressionId(null);
+
+      if (error) {
+        console.error("Supabase impression like delete failed", error);
+        setLikeErrorMessage("공감을 취소하는 중 문제가 생겼어요.");
+        return;
+      }
+
+      updateImpressionLikeState(impression.id, false);
+      return;
+    }
+
+    const { error: profileError } = await upsertUserProfile(
+      supabase,
+      userData.user,
+    );
+
+    if (profileError) {
+      console.error(
+        "Supabase profile upsert failed before impression like",
+        profileError,
+      );
+      setLikeErrorMessage(
+        `공감을 저장하는 중 문제가 생겼어요. ${profileError.message}`,
+      );
+      setLikingImpressionId(null);
+      return;
+    }
+
+    const { error } = await supabase.from("impression_likes").insert({
+      impression_id: impression.id,
+      user_id: userData.user.id,
+    });
+
+    setLikingImpressionId(null);
+
+    if (error) {
+      console.error("Supabase impression like insert failed", error);
+
+      if (isDuplicateLikeError(error)) {
+        updateImpressionLikeState(impression.id, true);
+        return;
+      }
+
+      setLikeErrorMessage("공감을 저장하는 중 문제가 생겼어요.");
+      return;
+    }
+
+    updateImpressionLikeState(impression.id, true);
   }
 
   const emotionDistribution = useMemo(
@@ -995,6 +1192,12 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
               </p>
             ) : null}
 
+            {likeErrorMessage ? (
+              <p className="mt-6 rounded-lg border border-[#f4c7d8]/24 bg-[#f4c7d8]/10 px-4 py-3 text-sm leading-6 text-[#f4c7d8]">
+                {likeErrorMessage}
+              </p>
+            ) : null}
+
             {detail.impressions.length > 0 ? (
               <div className="mt-8 space-y-5">
                 {detail.impressions.map((impression) => {
@@ -1003,8 +1206,12 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                   const watchMethodLabel = getWatchMethodLabel(
                     impression.watchMethod,
                   );
-                  const canReport =
-                    !currentUserId || impression.userId !== currentUserId;
+                  const isOwnImpression = currentUserId
+                    ? impression.userId === currentUserId
+                    : false;
+                  const canReport = !isOwnImpression;
+                  const canLike = !isOwnImpression;
+                  const isLiking = likingImpressionId === impression.id;
                   const isReported = reportedImpressionIds.includes(
                     impression.id,
                   );
@@ -1052,16 +1259,44 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                         </p>
                       ) : null}
 
-                      {canReport ? (
-                        <div className="mt-5 flex justify-end">
-                          <button
-                            type="button"
-                            disabled={isReported}
-                            onClick={() => openReportForm(impression)}
-                            className="rounded-full px-3 py-2 text-xs font-medium text-[#c9ad96] transition hover:bg-[#fff7ea]/8 hover:text-[#fff7ea] focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f] disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isReported ? "신고 완료" : "신고"}
-                          </button>
+                      {canLike || impression.likeCount > 0 || canReport ? (
+                        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex min-h-9 items-center">
+                            {canLike ? (
+                              <button
+                                type="button"
+                                aria-pressed={impression.likedByCurrentUser}
+                                disabled={isLiking}
+                                onClick={() => handleToggleLike(impression)}
+                                className={`rounded-full border px-3 py-2 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f] disabled:cursor-not-allowed disabled:opacity-60 ${
+                                  impression.likedByCurrentUser
+                                    ? "border-[#f0a15f]/55 bg-[#f0a15f]/18 text-[#ffd3a3]"
+                                    : "border-[#fff7ea]/14 bg-[#fff7ea]/5 text-[#e7d4c0] hover:border-[#f0a15f]/45 hover:text-[#ffd3a3]"
+                                }`}
+                              >
+                                {impression.likedByCurrentUser
+                                  ? "공감했어요"
+                                  : "공감"}{" "}
+                                {impression.likeCount.toLocaleString("ko-KR")}
+                              </button>
+                            ) : impression.likeCount > 0 ? (
+                              <span className="rounded-full border border-[#fff7ea]/12 bg-[#fff7ea]/5 px-3 py-2 text-xs font-medium text-[#c9ad96]">
+                                공감{" "}
+                                {impression.likeCount.toLocaleString("ko-KR")}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {canReport ? (
+                            <button
+                              type="button"
+                              disabled={isReported}
+                              onClick={() => openReportForm(impression)}
+                              className="rounded-full px-3 py-2 text-xs font-medium text-[#c9ad96] transition hover:bg-[#fff7ea]/8 hover:text-[#fff7ea] focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isReported ? "신고 완료" : "신고"}
+                            </button>
+                          ) : null}
                         </div>
                       ) : null}
 
