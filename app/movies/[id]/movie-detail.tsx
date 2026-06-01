@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ButtonLink,
   Card,
@@ -13,6 +13,7 @@ import { getEmotionTone } from "@/lib/emotions";
 import {
   getSupabaseBrowserClient,
   hasSupabaseConfig,
+  upsertUserProfile,
 } from "@/lib/supabase";
 
 type MaybeArray<T> = T | T[] | null;
@@ -41,6 +42,7 @@ type SupabaseEmotionRow = {
 
 type SupabaseImpressionRow = {
   id: string;
+  user_id: string | null;
   one_line: string;
   note: string | null;
   rating: number | null;
@@ -90,6 +92,7 @@ type MovieView = {
 
 type ImpressionView = {
   id: string;
+  userId: string | null;
   oneLine: string;
   note: string | null;
   rating: string | null;
@@ -128,6 +131,15 @@ type MovieLookupDebug = {
   tmdbIdFallback: number | null;
 };
 
+type ReportReasonValue =
+  | "offensive"
+  | "sexual"
+  | "violence_crime"
+  | "hate_discrimination"
+  | "spoiler"
+  | "spam"
+  | "other";
+
 const fallbackBookingLinks = [
   { id: "cgv", provider: "CGV", url: "https://www.cgv.co.kr/" },
   { id: "megabox", provider: "메가박스", url: "https://www.megabox.co.kr/" },
@@ -137,6 +149,16 @@ const fallbackBookingLinks = [
     url: "https://www.lottecinema.co.kr/",
   },
 ] satisfies BookingLinkView[];
+
+const reportReasons = [
+  { value: "offensive", label: "불쾌한 표현" },
+  { value: "sexual", label: "성적 콘텐츠" },
+  { value: "violence_crime", label: "폭력/범죄 관련" },
+  { value: "hate_discrimination", label: "혐오/차별 표현" },
+  { value: "spoiler", label: "스포일러" },
+  { value: "spam", label: "스팸/광고" },
+  { value: "other", label: "기타" },
+] satisfies Array<{ value: ReportReasonValue; label: string }>;
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -211,6 +233,14 @@ function getNotePreview(note: string) {
   return note.length > 150 ? `${note.slice(0, 150)}...` : note;
 }
 
+function isDuplicateReportError(error: { code?: string; message: string }) {
+  return (
+    error.code === "23505" ||
+    error.message.includes("reports_impression_reporter_unique") ||
+    error.message.toLowerCase().includes("duplicate")
+  );
+}
+
 function normalizeMovie(row: SupabaseMovieRow): MovieView {
   return {
     id: row.id,
@@ -235,6 +265,7 @@ function normalizeImpression(row: SupabaseImpressionRow): ImpressionView {
 
   return {
     id: row.id,
+    userId: row.user_id,
     oneLine: row.one_line,
     note: row.note,
     rating: row.rating ? String(row.rating) : null,
@@ -349,6 +380,17 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
   const [errorMessage, setErrorMessage] = useState("");
   const [lookupDebugDetail, setLookupDebugDetail] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [reportingImpression, setReportingImpression] =
+    useState<ImpressionView | null>(null);
+  const [reportReason, setReportReason] = useState<ReportReasonValue | "">("");
+  const [reportDetail, setReportDetail] = useState("");
+  const [reportErrorMessage, setReportErrorMessage] = useState("");
+  const [reportSuccessMessage, setReportSuccessMessage] = useState("");
+  const [reportedImpressionIds, setReportedImpressionIds] = useState<string[]>(
+    [],
+  );
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -358,6 +400,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
       setLookupDebugDetail("");
 
       if (!isSupabaseConfigured) {
+        setCurrentUserId(null);
         setErrorMessage(
           "Supabase 환경변수가 설정되지 않아 영화 정보를 불러올 수 없어요.",
         );
@@ -398,13 +441,19 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
       const movie = normalizeMovie(movieResult.data as SupabaseMovieRow);
       const supabase = getSupabaseBrowserClient();
 
-      const [impressionsResult, criticReviewsResult, bookingLinksResult] =
-        await Promise.all([
-          supabase
-            .from("impressions")
-            .select(
-              `
+      const [
+        userResult,
+        impressionsResult,
+        criticReviewsResult,
+        bookingLinksResult,
+      ] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase
+          .from("impressions")
+          .select(
+            `
               id,
+              user_id,
               one_line,
               note,
               rating,
@@ -419,23 +468,35 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                 )
               )
             `,
-            )
-            .eq("movie_id", movie.id)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("critic_reviews")
-            .select("id, critic_name, outlet, rating, short_quote, source_url")
-            .eq("movie_id", movie.id)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("booking_links")
-            .select("id, provider, url")
-            .eq("movie_id", movie.id),
-        ]);
+          )
+          .eq("movie_id", movie.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("critic_reviews")
+          .select("id, critic_name, outlet, rating, short_quote, source_url")
+          .eq("movie_id", movie.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("booking_links")
+          .select("id, provider, url")
+          .eq("movie_id", movie.id),
+      ]);
 
       if (!isMounted) {
         return;
       }
+
+      if (
+        userResult.error &&
+        userResult.error.name !== "AuthSessionMissingError"
+      ) {
+        console.error(
+          "Supabase getUser failed on movie detail",
+          userResult.error,
+        );
+      }
+
+      setCurrentUserId(userResult.data.user?.id ?? null);
 
       const relatedErrors = [
         impressionsResult.error,
@@ -476,6 +537,128 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
       isMounted = false;
     };
   }, [identifier, isSupabaseConfigured]);
+
+  function openReportForm(impression: ImpressionView) {
+    setReportSuccessMessage("");
+    setReportErrorMessage("");
+
+    if (!isSupabaseConfigured) {
+      setReportErrorMessage(
+        "Supabase 환경변수가 설정되지 않아 신고를 보낼 수 없어요.",
+      );
+      return;
+    }
+
+    if (!currentUserId) {
+      setReportErrorMessage("로그인 후 신고할 수 있어요.");
+      return;
+    }
+
+    if (impression.userId === currentUserId) {
+      return;
+    }
+
+    setReportingImpression(impression);
+    setReportReason("");
+    setReportDetail("");
+  }
+
+  function closeReportForm() {
+    setReportingImpression(null);
+    setReportReason("");
+    setReportDetail("");
+    setReportErrorMessage("");
+  }
+
+  async function handleSubmitReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!reportingImpression) {
+      return;
+    }
+
+    if (!reportReason) {
+      setReportErrorMessage("신고 사유를 선택해주세요.");
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      setReportErrorMessage(
+        "Supabase 환경변수가 설정되지 않아 신고를 보낼 수 없어요.",
+      );
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    setReportErrorMessage("");
+    setReportSuccessMessage("");
+
+    const supabase = getSupabaseBrowserClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Supabase getUser failed before report insert", userError);
+    }
+
+    if (!userData.user) {
+      setCurrentUserId(null);
+      setReportErrorMessage("로그인 후 신고할 수 있어요.");
+      setIsSubmittingReport(false);
+      return;
+    }
+
+    setCurrentUserId(userData.user.id);
+
+    const { error: profileError } = await upsertUserProfile(
+      supabase,
+      userData.user,
+    );
+
+    if (profileError) {
+      console.error(
+        "Supabase profile upsert failed before report",
+        profileError,
+      );
+      setReportErrorMessage(
+        `신고를 보내기 전에 프로필을 준비하지 못했어요. ${profileError.message}`,
+      );
+      setIsSubmittingReport(false);
+      return;
+    }
+
+    const trimmedDetail = reportDetail.trim();
+    const { error } = await supabase.from("reports").insert({
+      impression_id: reportingImpression.id,
+      reporter_id: userData.user.id,
+      reason: reportReason,
+      detail: trimmedDetail || null,
+      status: "pending",
+    });
+
+    if (error) {
+      console.error("Supabase report insert failed", error);
+      setReportErrorMessage(
+        isDuplicateReportError(error)
+          ? "이미 신고한 감상이에요."
+          : `신고를 보내지 못했어요. ${error.message}`,
+      );
+      setIsSubmittingReport(false);
+      return;
+    }
+
+    setReportedImpressionIds((current) =>
+      current.includes(reportingImpression.id)
+        ? current
+        : [...current, reportingImpression.id],
+    );
+    setReportSuccessMessage(
+      "신고가 접수됐어요. 확인 후 필요한 조치를 할게요.",
+    );
+    setReportingImpression(null);
+    setReportReason("");
+    setReportDetail("");
+    setIsSubmittingReport(false);
+  }
 
   const emotionDistribution = useMemo(
     () => getEmotionDistribution(detail?.impressions ?? []),
@@ -714,11 +897,28 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
               <ButtonLink href={ctaHref}>나도 감상 남기기</ButtonLink>
             </div>
 
+            {reportSuccessMessage ? (
+              <p className="mt-6 rounded-lg border border-[#f0a15f]/24 bg-[#f0a15f]/10 px-4 py-3 text-sm leading-6 text-[#ffd3a3]">
+                {reportSuccessMessage}
+              </p>
+            ) : null}
+
+            {reportErrorMessage && !reportingImpression ? (
+              <p className="mt-6 rounded-lg border border-[#f4c7d8]/24 bg-[#f4c7d8]/10 px-4 py-3 text-sm leading-6 text-[#f4c7d8]">
+                {reportErrorMessage}
+              </p>
+            ) : null}
+
             {detail.impressions.length > 0 ? (
               <div className="mt-8 space-y-5">
                 {detail.impressions.map((impression) => {
                   const watchedDate = formatDate(impression.watchedAt);
                   const createdDate = formatDate(impression.createdAt);
+                  const canReport =
+                    !currentUserId || impression.userId !== currentUserId;
+                  const isReported = reportedImpressionIds.includes(
+                    impression.id,
+                  );
 
                   return (
                     <article
@@ -756,6 +956,93 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                         <p className="mt-3 text-sm leading-7 text-[#e7d4c0]">
                           {getNotePreview(impression.note)}
                         </p>
+                      ) : null}
+
+                      {canReport ? (
+                        <div className="mt-5 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={isReported}
+                            onClick={() => openReportForm(impression)}
+                            className="rounded-full px-3 py-2 text-xs font-medium text-[#c9ad96] transition hover:bg-[#fff7ea]/8 hover:text-[#fff7ea] focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isReported ? "신고 완료" : "신고"}
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {reportingImpression?.id === impression.id ? (
+                        <form
+                          className="mt-5 rounded-lg border border-[#fff7ea]/10 bg-[#fff7ea]/5 p-4"
+                          onSubmit={handleSubmitReport}
+                        >
+                          <p className="text-sm font-medium text-[#f2b482]">
+                            이 감상을 신고할까요?
+                          </p>
+                          <label
+                            className="mt-4 block text-sm font-medium text-[#e7d4c0]"
+                            htmlFor={`report-reason-${impression.id}`}
+                          >
+                            신고 사유
+                          </label>
+                          <select
+                            id={`report-reason-${impression.id}`}
+                            value={reportReason}
+                            onChange={(event) =>
+                              setReportReason(
+                                event.target.value as ReportReasonValue | "",
+                              )
+                            }
+                            className="mt-2 w-full rounded-lg border border-[#fff7ea]/12 bg-[#12100f] px-4 py-3 text-[#fff7ea] outline-none transition focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
+                          >
+                            <option value="">사유를 선택해주세요</option>
+                            {reportReasons.map((reason) => (
+                              <option key={reason.value} value={reason.value}>
+                                {reason.label}
+                              </option>
+                            ))}
+                          </select>
+
+                          <label
+                            className="mt-4 block text-sm font-medium text-[#e7d4c0]"
+                            htmlFor={`report-detail-${impression.id}`}
+                          >
+                            더 남기고 싶은 설명
+                          </label>
+                          <textarea
+                            id={`report-detail-${impression.id}`}
+                            value={reportDetail}
+                            onChange={(event) =>
+                              setReportDetail(event.target.value)
+                            }
+                            placeholder="조금 더 설명하고 싶다면 적어주세요."
+                            rows={3}
+                            className="mt-2 w-full resize-none rounded-lg border border-[#fff7ea]/12 bg-[#12100f] px-4 py-3 leading-7 text-[#fff7ea] outline-none transition placeholder:text-[#c9ad96]/70 focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
+                          />
+
+                          {reportErrorMessage ? (
+                            <p className="mt-3 rounded-lg border border-[#f4c7d8]/24 bg-[#f4c7d8]/10 px-4 py-3 text-sm leading-6 text-[#f4c7d8]">
+                              {reportErrorMessage}
+                            </p>
+                          ) : null}
+
+                          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                            <button
+                              type="button"
+                              onClick={closeReportForm}
+                              className="rounded-full border border-[#fff7ea]/14 px-4 py-2 text-sm font-medium text-[#e7d4c0] transition hover:bg-[#fff7ea]/8 hover:text-[#fff7ea] focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+                            >
+                              취소
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={isSubmittingReport}
+                              className="rounded-full border border-[#f0a15f]/35 bg-[#f0a15f]/12 px-4 py-2 text-sm font-semibold text-[#ffd3a3] transition hover:border-[#f0a15f]/55 hover:bg-[#f0a15f]/20 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isSubmittingReport ? "보내는 중" : "신고 보내기"}
+                            </button>
+                          </div>
+                        </form>
                       ) : null}
                     </article>
                   );
