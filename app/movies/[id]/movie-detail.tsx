@@ -1079,31 +1079,17 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
 
         <section className="mt-8 grid gap-8 lg:grid-cols-[minmax(260px,0.44fr)_minmax(0,1fr)] lg:items-start">
           <div
-            className="rounded-lg border border-[#fff7ea]/12 bg-[linear-gradient(145deg,rgba(240,161,95,0.24),rgba(244,199,216,0.13)_46%,rgba(18,16,15,0.88))] bg-cover bg-center p-4 shadow-[0_30px_90px_rgba(0,0,0,0.34)]"
+            role="img"
+            aria-label={`${movie.title} 포스터`}
+            className="aspect-[2/3] overflow-hidden rounded-lg border border-[#fff7ea]/12 bg-[linear-gradient(145deg,rgba(240,161,95,0.24),rgba(244,199,216,0.13)_46%,rgba(18,16,15,0.88))] bg-cover bg-center shadow-[0_30px_90px_rgba(0,0,0,0.34)]"
             style={
               movie.posterUrl
                 ? {
-                    backgroundImage: `linear-gradient(180deg,rgba(18,16,15,0.08),rgba(18,16,15,0.84)),url(${movie.posterUrl})`,
+                    backgroundImage: `url(${movie.posterUrl})`,
                   }
                 : undefined
             }
-          >
-            <div className="aspect-[2/3] rounded-md border border-[#fff7ea]/10 bg-[#12100f]/30 p-6 backdrop-blur-[1px]">
-              <div className="flex h-full flex-col justify-between">
-                <p className="text-sm font-medium text-[#f2b482]">남은 장면</p>
-                <div>
-                  <p className="text-4xl font-semibold leading-tight text-[#fff7ea]">
-                    {movie.title}
-                  </p>
-                  {movie.originalTitle ? (
-                    <p className="mt-3 text-sm leading-6 text-[#e7d4c0]">
-                      {movie.originalTitle}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </div>
+          />
 
           <div>
             <SectionHeader

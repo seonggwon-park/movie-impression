@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ButtonLink, Card, EmotionTag } from "@/components/ui";
@@ -34,7 +34,11 @@ type SupabaseEmotionRow = {
 };
 
 type SupabaseImpressionRow = {
+  id: string;
   movie_id: string;
+  one_line: string;
+  note: string | null;
+  created_at: string | null;
   impression_emotions:
     | Array<{
         emotions: MaybeArray<SupabaseEmotionRow>;
@@ -59,6 +63,14 @@ type MovieLinkTarget = {
   slug: string | null;
 };
 
+type ImpressionPreview = {
+  id: string;
+  oneLine: string;
+  note: string | null;
+  createdAt: string | null;
+  emotions: EmotionView[];
+};
+
 type MovieView = {
   id: string;
   title: string;
@@ -73,6 +85,8 @@ type MovieView = {
   mainEmotion: EmotionView | null;
   emotionNames: string[];
   emotionVariety: number;
+  latestImpressionAt: string | null;
+  featuredImpressions: ImpressionPreview[];
 };
 
 type PopularImpressionView = {
@@ -134,6 +148,10 @@ function formatCompactDate(value: string | null) {
     month: "long",
     day: "numeric",
   }).format(new Date(value));
+}
+
+function getTimestamp(value: string | null) {
+  return value ? new Date(value).getTime() : 0;
 }
 
 function getEmotionLabel(emotion: EmotionView) {
@@ -203,6 +221,8 @@ function createMovieViews(
     {
       impressionCount: number;
       emotionCounts: Map<string, { emotion: EmotionView; count: number }>;
+      impressions: ImpressionPreview[];
+      latestImpressionAt: string | null;
     }
   >();
 
@@ -210,17 +230,32 @@ function createMovieViews(
     const stats = statsByMovieId.get(impression.movie_id) ?? {
       impressionCount: 0,
       emotionCounts: new Map<string, { emotion: EmotionView; count: number }>(),
+      impressions: [],
+      latestImpressionAt: null,
     };
+    const impressionEmotions =
+      impression.impression_emotions
+        ?.map((item) => getSingleRelation(item.emotions))
+        .filter((emotion): emotion is SupabaseEmotionRow => Boolean(emotion)) ??
+      [];
 
     stats.impressionCount += 1;
+    stats.impressions.push({
+      id: impression.id,
+      oneLine: impression.one_line,
+      note: impression.note,
+      createdAt: impression.created_at,
+      emotions: impressionEmotions,
+    });
 
-    impression.impression_emotions?.forEach((item) => {
-      const emotion = getSingleRelation(item.emotions);
+    if (
+      getTimestamp(impression.created_at) >
+      getTimestamp(stats.latestImpressionAt)
+    ) {
+      stats.latestImpressionAt = impression.created_at;
+    }
 
-      if (!emotion) {
-        return;
-      }
-
+    impressionEmotions.forEach((emotion) => {
       const current = stats.emotionCounts.get(emotion.name);
       stats.emotionCounts.set(emotion.name, {
         emotion,
@@ -238,6 +273,9 @@ function createMovieViews(
       [...(stats?.emotionCounts.values() ?? [])].sort(
         (a, b) => b.count - a.count,
       )[0]?.emotion ?? null;
+    const featuredImpressions = [...(stats?.impressions ?? [])]
+      .sort((a, b) => getTimestamp(b.createdAt) - getTimestamp(a.createdAt))
+      .slice(0, 2);
 
     return {
       id: movie.id,
@@ -253,6 +291,8 @@ function createMovieViews(
       mainEmotion,
       emotionNames,
       emotionVariety: stats?.emotionCounts.size ?? 0,
+      latestImpressionAt: stats?.latestImpressionAt ?? null,
+      featuredImpressions,
     };
   });
 }
@@ -276,25 +316,15 @@ function MovieCard({
     >
       <Card className="flex h-full flex-col overflow-hidden p-0 transition group-hover:border-[#f0a15f]/35 group-hover:bg-[#fff7ea]/10">
         <div
-          className="aspect-[16/10] border-b border-[#fff7ea]/10 bg-[linear-gradient(135deg,rgba(240,161,95,0.22),rgba(244,199,216,0.12)_42%,rgba(200,182,255,0.08)_68%,rgba(18,16,15,0.86))] bg-cover bg-center p-5"
+          className="aspect-[16/10] border-b border-[#fff7ea]/10 bg-[linear-gradient(135deg,rgba(240,161,95,0.22),rgba(244,199,216,0.12)_42%,rgba(200,182,255,0.08)_68%,rgba(18,16,15,0.86))] bg-cover bg-center"
           style={
             movie.posterUrl
               ? {
-                  backgroundImage: `linear-gradient(180deg,rgba(18,16,15,0.08),rgba(18,16,15,0.84)),url(${movie.posterUrl})`,
+                  backgroundImage: `url(${movie.posterUrl})`,
                 }
               : undefined
           }
-        >
-          <div className="flex h-full flex-col justify-between rounded-md border border-[#fff7ea]/10 bg-[#12100f]/34 p-4 backdrop-blur-[1px]">
-            <p className="text-xs font-medium text-[#f2b482]">남은 장면</p>
-            <div>
-              <p className="text-2xl font-semibold text-[#fff7ea]">
-                {movie.title}
-              </p>
-              <p className="mt-1 text-sm text-[#e7d4c0]">{releaseYear}</p>
-            </div>
-          </div>
-        </div>
+        />
 
         <div className="flex flex-1 flex-col p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -432,6 +462,229 @@ function TodayPopularImpressionsCard({
   );
 }
 
+function FeaturedMovieCarousel({ movies }: { movies: MovieView[] }) {
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const activeIndex =
+    movies.length > 0
+      ? Math.min(activeSlideIndex, movies.length - 1)
+      : 0;
+
+  function scrollToSlide(index: number) {
+    const carousel = carouselRef.current;
+    const slide = carousel?.children.item(index) as HTMLElement | null;
+
+    if (!slide) {
+      return;
+    }
+
+    slide.scrollIntoView({
+      block: "nearest",
+      inline: "start",
+      behavior: "smooth",
+    });
+    setActiveSlideIndex(index);
+  }
+
+  function scrollCarousel(direction: "previous" | "next") {
+    const nextIndex =
+      direction === "next"
+        ? Math.min(activeIndex + 1, movies.length - 1)
+        : Math.max(activeIndex - 1, 0);
+
+    scrollToSlide(nextIndex);
+  }
+
+  function handleCarouselScroll() {
+    const carousel = carouselRef.current;
+
+    if (!carousel) {
+      return;
+    }
+
+    const slides = Array.from(carousel.children) as HTMLElement[];
+    const closestSlide = slides.reduce(
+      (currentClosest, slide, index) => {
+        const distance = Math.abs(
+          slide.offsetLeft - carousel.offsetLeft - carousel.scrollLeft,
+        );
+
+        return distance < currentClosest.distance
+          ? { distance, index }
+          : currentClosest;
+      },
+      { distance: Number.POSITIVE_INFINITY, index: 0 },
+    );
+
+    setActiveSlideIndex(closestSlide.index);
+  }
+
+  return (
+    <section
+      className="overflow-hidden rounded-lg border border-[#fff7ea]/10 bg-[linear-gradient(145deg,rgba(240,161,95,0.12),rgba(244,199,216,0.07)_42%,rgba(255,247,234,0.04))] p-5 sm:p-6"
+      aria-labelledby="featured-movies"
+    >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-[#f2b482]">지금 머무는 영화</p>
+          <h2
+            id="featured-movies"
+            className="mt-2 text-2xl font-semibold text-[#fff7ea]"
+          >
+            여운이 쌓인 영화
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+            사람들이 남긴 짧은 감상과 함께 영화를 천천히 둘러보세요.
+          </p>
+        </div>
+
+        {movies.length > 1 ? (
+          <div className="hidden gap-2 sm:flex">
+            <button
+              type="button"
+              onClick={() => scrollCarousel("previous")}
+              aria-label="이전 영화 보기"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#fff7ea]/14 bg-[#12100f]/44 text-[#e7d4c0] transition hover:border-[#f0a15f]/45 hover:text-[#ffd3a3] focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollCarousel("next")}
+              aria-label="다음 영화 보기"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#fff7ea]/14 bg-[#12100f]/44 text-[#e7d4c0] transition hover:border-[#f0a15f]/45 hover:text-[#ffd3a3] focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+            >
+              ›
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {movies.length === 0 ? (
+        <div className="mt-6 rounded-lg border border-dashed border-[#fff7ea]/12 bg-[#12100f]/34 p-6 text-center">
+          <p className="text-base font-semibold text-[#fff7ea]">
+            아직 감상이 쌓인 영화가 없어요.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+            첫 감상이 남겨지면 이곳에서 영화의 여운을 볼 수 있어요.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div
+            ref={carouselRef}
+            onScroll={handleCarouselScroll}
+            className="mt-6 flex snap-x snap-mandatory overflow-x-auto rounded-lg pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {movies.map((movie) => {
+              const releaseYear = movie.releaseYear ?? "개봉 연도 미상";
+
+              return (
+                <Link
+                  id={`featured-movie-${movie.id}`}
+                  key={movie.id}
+                  href={getMovieHref(movie)}
+                  aria-label={`${movie.title} 상세 페이지 보기`}
+                  className="group grid w-full shrink-0 snap-start overflow-hidden rounded-lg border border-[#fff7ea]/10 bg-[#12100f]/48 transition hover:border-[#f0a15f]/35 hover:bg-[#fff7ea]/8 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f] lg:grid-cols-[minmax(180px,0.42fr)_minmax(0,1fr)]"
+                >
+                  <div
+                    className="min-h-[320px] bg-[linear-gradient(145deg,rgba(240,161,95,0.24),rgba(244,199,216,0.12),rgba(18,16,15,0.88))] bg-cover bg-center"
+                    style={
+                      movie.posterUrl
+                        ? {
+                            backgroundImage: `url(${movie.posterUrl})`,
+                          }
+                        : undefined
+                    }
+                  >
+                    {!movie.posterUrl ? (
+                      <div className="flex h-full min-h-[320px] items-end p-5">
+                        <p className="text-3xl font-semibold leading-tight text-[#fff7ea]">
+                          {movie.title}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="flex min-h-[320px] flex-col justify-between p-5 sm:p-6">
+                    <div>
+                      <p className="text-sm font-medium text-[#f2b482]">
+                        {releaseYear} · 감상{" "}
+                        {movie.impressionCount.toLocaleString("ko-KR")}개
+                      </p>
+                      <h3 className="mt-3 text-3xl font-semibold leading-tight text-[#fff7ea] group-hover:text-[#ffd3a3]">
+                        {movie.title}
+                      </h3>
+
+                      <div className="mt-6 space-y-3">
+                        {movie.featuredImpressions.map((impression) => (
+                          <figure
+                            key={impression.id}
+                            className="rounded-lg border border-[#fff7ea]/8 bg-[#fff7ea]/5 p-4"
+                          >
+                            <blockquote className="text-base leading-7 text-[#f1ddc9]">
+                              “{impression.oneLine}”
+                            </blockquote>
+                            {impression.note ? (
+                              <figcaption className="mt-2 text-sm leading-6 text-[#c9ad96]">
+                                {getNotePreview(impression.note)}
+                              </figcaption>
+                            ) : null}
+                            {impression.emotions.length > 0 ? (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {impression.emotions.slice(0, 2).map((emotion) => (
+                                  <EmotionTag
+                                    as="span"
+                                    key={emotion.id}
+                                    tone={getEmotionTone(emotion.name)}
+                                  >
+                                    {getEmotionLabel(emotion)}
+                                  </EmotionTag>
+                                ))}
+                              </div>
+                            ) : null}
+                          </figure>
+                        ))}
+                      </div>
+                    </div>
+
+                    <span className="mt-6 inline-flex w-fit rounded-full border border-[#fff7ea]/16 px-4 py-2 text-sm font-semibold text-[#e7d4c0] transition group-hover:border-[#f0a15f]/35 group-hover:bg-[#f0a15f]/12 group-hover:text-[#ffd3a3]">
+                      영화의 여운 보기
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {movies.length > 1 ? (
+            <div className="mt-2 flex justify-center gap-2">
+              {movies.map((movie, index) => {
+                const isActive = index === activeIndex;
+
+                return (
+                  <button
+                    type="button"
+                    key={movie.id}
+                    aria-label={`${movie.title} 슬라이드로 이동`}
+                    aria-current={isActive ? "true" : undefined}
+                    onClick={() => scrollToSlide(index)}
+                    className={`rounded-full transition focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f] ${
+                      isActive
+                        ? "h-2.5 w-7 bg-[#ffd3a3] shadow-[0_0_16px_rgba(255,211,163,0.38)]"
+                        : "h-2 w-2 bg-[#fff7ea]/24 hover:bg-[#f2b482]/70"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
 export function MovieBrowser() {
   const pathname = usePathname();
   const router = useRouter();
@@ -493,7 +746,11 @@ export function MovieBrowser() {
             )
             .order("created_at", { ascending: false }),
           supabase.from("impressions").select(`
+          id,
           movie_id,
+          one_line,
+          note,
+          created_at,
           impression_emotions (
             emotions (
               id,
@@ -501,7 +758,7 @@ export function MovieBrowser() {
               emoji
             )
           )
-        `),
+        `).order("created_at", { ascending: false }),
           supabase.from("emotions").select("id, name, emoji").order("name"),
         ]);
 
@@ -623,35 +880,6 @@ export function MovieBrowser() {
     });
   }
 
-  const rankingGroups = useMemo(() => {
-    const browsedMovies = hasSelectedEmotionFilters
-      ? movies.filter((movie) =>
-          movieHasEveryEmotion(movie, selectedEmotionNames),
-        )
-      : movies;
-    const mostImpressed = [...browsedMovies].sort(
-      (a, b) => b.impressionCount - a.impressionCount,
-    );
-    const mostVaried = [...browsedMovies].sort(
-      (a, b) =>
-        b.emotionVariety - a.emotionVariety ||
-        b.impressionCount - a.impressionCount,
-    );
-
-    return [
-      {
-        title: "감상 많이 남긴 영화",
-        description: "한 줄 감상이 가장 많이 쌓인 영화",
-        movies: mostImpressed,
-      },
-      {
-        title: "감정이 다양하게 남은 영화",
-        description: "서로 다른 마음으로 기억된 영화",
-        movies: mostVaried,
-      },
-    ];
-  }, [hasSelectedEmotionFilters, movies, selectedEmotionNames]);
-
   const filteredMovies = useMemo(
     () =>
       hasSelectedEmotionFilters
@@ -660,6 +888,19 @@ export function MovieBrowser() {
           )
         : movies,
     [hasSelectedEmotionFilters, movies, selectedEmotionNames],
+  );
+  const featuredMovies = useMemo(
+    () =>
+      [...filteredMovies]
+        .filter((movie) => movie.featuredImpressions.length > 0)
+        .sort(
+          (a, b) =>
+            getTimestamp(b.latestImpressionAt) -
+              getTimestamp(a.latestImpressionAt) ||
+            b.impressionCount - a.impressionCount,
+        )
+        .slice(0, 8),
+    [filteredMovies],
   );
 
   const movieCountsByEmotion = useMemo(() => {
@@ -764,55 +1005,13 @@ export function MovieBrowser() {
         </Card>
       ) : (
         <>
-          <section className="mt-14 grid gap-4 lg:grid-cols-3">
+          <section className="mt-14 grid gap-6 xl:grid-cols-[minmax(280px,0.36fr)_minmax(0,1fr)]">
             <TodayPopularImpressionsCard
               impressions={popularImpressions}
               isLoading={isPopularImpressionsLoading}
               errorMessage={popularImpressionsErrorMessage}
             />
-            {rankingGroups.map((group) => (
-              <Card key={group.title} className="p-5">
-                <h2 className="text-lg font-semibold text-[#fff7ea]">
-                  {group.title}
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
-                  {group.description}
-                </p>
-                <ol className="mt-5 space-y-3">
-                  {group.movies.slice(0, 3).map((movie, index) => (
-                    <li key={`${group.title}-${movie.id}`}>
-                      <Link
-                        href={getMovieHref(movie)}
-                        aria-label={`${movie.title} 상세 페이지 보기`}
-                        className="group flex items-center justify-between gap-4 rounded-lg border border-[#fff7ea]/8 bg-[#12100f]/38 px-4 py-3 transition hover:border-[#f0a15f]/28 hover:bg-[#fff7ea]/8 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-[#fff7ea] group-hover:text-[#ffd3a3]">
-                            {index + 1}. {movie.title}
-                          </p>
-                          <p className="mt-1 text-sm text-[#c9ad96]">
-                            감상{" "}
-                            {movie.impressionCount.toLocaleString("ko-KR")}개
-                          </p>
-                        </div>
-                        {!hasSelectedEmotionFilters && movie.mainEmotion ? (
-                          <EmotionTag
-                            as="span"
-                            tone={getEmotionTone(movie.mainEmotion.name)}
-                          >
-                            {getEmotionLabel(movie.mainEmotion)}
-                          </EmotionTag>
-                        ) : !hasSelectedEmotionFilters ? (
-                          <EmotionTag as="span" tone="warm">
-                            대기
-                          </EmotionTag>
-                        ) : null}
-                      </Link>
-                    </li>
-                  ))}
-                </ol>
-              </Card>
-            ))}
+            <FeaturedMovieCarousel movies={featuredMovies} />
           </section>
 
           <section className="mt-16" aria-labelledby="movie-list">
