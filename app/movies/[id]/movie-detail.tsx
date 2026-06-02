@@ -58,9 +58,13 @@ type SupabaseImpressionRow = {
     | null;
 };
 
-type SupabaseImpressionLikeRow = {
+type SupabaseCurrentUserLikeRow = {
   impression_id: string;
-  user_id: string;
+};
+
+type LikeCountsResponse = {
+  counts?: Record<string, number>;
+  message?: string;
 };
 
 type SupabaseCriticReviewRow = {
@@ -261,21 +265,9 @@ function isDuplicateLikeError(error: { code?: string; message: string }) {
 
 function addLikeStateToImpressions(
   impressions: ImpressionView[],
-  likes: SupabaseImpressionLikeRow[],
-  currentUserId: string | null,
+  likeCounts: Record<string, number>,
+  currentUserLikeIds: Set<string>,
 ) {
-  const likeCounts = likes.reduce<Record<string, number>>((counts, like) => {
-    counts[like.impression_id] = (counts[like.impression_id] ?? 0) + 1;
-    return counts;
-  }, {});
-  const currentUserLikeIds = new Set(
-    currentUserId
-      ? likes
-          .filter((like) => like.user_id === currentUserId)
-          .map((like) => like.impression_id)
-      : [],
-  );
-
   return impressions.map((impression) => ({
     ...impression,
     likeCount: likeCounts[impression.id] ?? 0,
@@ -451,6 +443,28 @@ async function fetchMovieByIdentifier(identifier: string) {
   return { lookupDebug, movieResult: slugResult };
 }
 
+async function fetchPublicLikeCounts(impressionIds: string[]) {
+  if (impressionIds.length === 0) {
+    return {};
+  }
+
+  const response = await fetch(
+    `/api/impressions/like-counts?ids=${encodeURIComponent(
+      impressionIds.join(","),
+    )}`,
+    { cache: "no-store" },
+  );
+  const data = (await response
+    .json()
+    .catch(() => null)) as LikeCountsResponse | null;
+
+  if (!response.ok) {
+    throw new Error(data?.message ?? "공감 수를 불러오지 못했어요.");
+  }
+
+  return data?.counts ?? {};
+}
+
 export function MovieDetail({ identifier }: MovieDetailProps) {
   const isSupabaseConfigured = hasSupabaseConfig();
   const [detail, setDetail] = useState<MovieDetailState | null>(null);
@@ -601,31 +615,53 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
       const impressions = (
         (impressionsResult.data ?? []) as SupabaseImpressionRow[]
       ).map(normalizeImpression);
-      let impressionsWithLikes = impressions;
+      const impressionIds = impressions.map((impression) => impression.id);
+      let likeCounts: Record<string, number> = {};
+      let currentUserLikeIds = new Set<string>();
 
-      if (currentUser && impressions.length > 0) {
-        const { data: likeRows, error: likesError } = await supabase
-          .from("impression_likes")
-          .select("impression_id, user_id")
-          .in(
-            "impression_id",
-            impressions.map((impression) => impression.id),
-          );
+      if (impressionIds.length > 0) {
+        try {
+          likeCounts = await fetchPublicLikeCounts(impressionIds);
+        } catch (error) {
+          console.error("Public impression like counts load failed", error);
+        }
+      }
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (currentUser && impressionIds.length > 0) {
+        const { data: currentUserLikeRows, error: currentUserLikesError } =
+          await supabase
+            .from("impression_likes")
+            .select("impression_id")
+            .eq("user_id", currentUser.id)
+            .in("impression_id", impressionIds);
 
         if (!isMounted) {
           return;
         }
 
-        if (likesError) {
-          console.error("Supabase impression likes load failed", likesError);
+        if (currentUserLikesError) {
+          console.error(
+            "Supabase current user impression likes load failed",
+            currentUserLikesError,
+          );
         } else {
-          impressionsWithLikes = addLikeStateToImpressions(
-            impressions,
-            (likeRows ?? []) as SupabaseImpressionLikeRow[],
-            currentUser.id,
+          currentUserLikeIds = new Set(
+            ((currentUserLikeRows ?? []) as SupabaseCurrentUserLikeRow[]).map(
+              (like) => like.impression_id,
+            ),
           );
         }
       }
+
+      const impressionsWithLikes = addLikeStateToImpressions(
+        impressions,
+        likeCounts,
+        currentUserLikeIds,
+      );
 
       const bookingLinks = (
         (bookingLinksResult.data ?? []) as SupabaseBookingLinkRow[]
@@ -775,6 +811,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
   function updateImpressionLikeState(
     impressionId: string,
     likedByCurrentUser: boolean,
+    likeCountDelta: number,
   ) {
     setDetail((currentDetail) => {
       if (!currentDetail) {
@@ -788,16 +825,17 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
             return impression;
           }
 
-          if (impression.likedByCurrentUser === likedByCurrentUser) {
+          if (
+            impression.likedByCurrentUser === likedByCurrentUser &&
+            likeCountDelta === 0
+          ) {
             return impression;
           }
 
           return {
             ...impression,
             likedByCurrentUser,
-            likeCount: likedByCurrentUser
-              ? impression.likeCount + 1
-              : Math.max(0, impression.likeCount - 1),
+            likeCount: Math.max(0, impression.likeCount + likeCountDelta),
           };
         }),
       };
@@ -851,7 +889,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         return;
       }
 
-      updateImpressionLikeState(impression.id, false);
+      updateImpressionLikeState(impression.id, false, -1);
       return;
     }
 
@@ -883,7 +921,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
       console.error("Supabase impression like insert failed", error);
 
       if (isDuplicateLikeError(error)) {
-        updateImpressionLikeState(impression.id, true);
+        updateImpressionLikeState(impression.id, true, 0);
         return;
       }
 
@@ -891,7 +929,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
       return;
     }
 
-    updateImpressionLikeState(impression.id, true);
+    updateImpressionLikeState(impression.id, true, 1);
   }
 
   const emotionDistribution = useMemo(
