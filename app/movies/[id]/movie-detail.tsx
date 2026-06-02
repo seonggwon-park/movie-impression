@@ -133,11 +133,30 @@ type BookingLinkView = {
   url: string;
 };
 
+type WatchProviderCategory = "구독" | "대여" | "구매" | "무료/광고";
+
+type WatchProviderView = {
+  provider_id: number;
+  provider_name: string;
+  logo_url: string | null;
+  category: WatchProviderCategory;
+  link: string | null;
+};
+
+type WatchProvidersResponse = {
+  providers?: WatchProviderView[];
+  link?: string | null;
+  message?: string;
+  detail?: string;
+};
+
 type MovieDetailState = {
   movie: MovieView;
   impressions: ImpressionView[];
   criticReviews: CriticReviewView[];
   bookingLinks: BookingLinkView[];
+  watchProviders: WatchProviderView[];
+  watchProviderErrorMessage: string;
 };
 
 type MovieLookupDebug = {
@@ -173,6 +192,12 @@ const fallbackBookingLinks = [
 ] satisfies BookingLinkView[];
 
 const currentShowingWindowDays = 60;
+const watchProviderCategoryOrder = [
+  "구독",
+  "대여",
+  "구매",
+  "무료/광고",
+] satisfies WatchProviderCategory[];
 
 const reportReasons = [
   { value: "offensive", label: "불쾌한 표현" },
@@ -554,6 +579,79 @@ async function fetchPublicLikeCounts(impressionIds: string[]) {
   return data?.counts ?? {};
 }
 
+async function fetchWatchProviders(tmdbId: number) {
+  try {
+    const response = await fetch(
+      `/api/tmdb/watch-providers?tmdbId=${encodeURIComponent(String(tmdbId))}`,
+      { cache: "no-store" },
+    );
+    const data = (await response
+      .json()
+      .catch(() => null)) as WatchProvidersResponse | null;
+
+    if (!response.ok) {
+      console.error("Watch provider API route failed", data);
+
+      return {
+        providers: [],
+        errorMessage:
+          data?.message ?? "시청처 정보를 불러오는 중 문제가 생겼어요.",
+      };
+    }
+
+    return {
+      providers: data?.providers ?? [],
+      errorMessage: "",
+    };
+  } catch (error) {
+    console.error("Watch provider API request failed", error);
+
+    return {
+      providers: [],
+      errorMessage: "시청처 정보를 불러오는 중 문제가 생겼어요.",
+    };
+  }
+}
+
+function WatchProviderItem({ provider }: { provider: WatchProviderView }) {
+  const content = (
+    <>
+      {provider.logo_url ? (
+        <span
+          aria-hidden="true"
+          className="h-9 w-9 shrink-0 rounded-md bg-[#fff7ea]/10 bg-cover bg-center"
+          style={{ backgroundImage: `url(${provider.logo_url})` }}
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#fff7ea]/10 text-sm font-semibold text-[#ffd3a3]"
+        >
+          {provider.provider_name.slice(0, 1)}
+        </span>
+      )}
+      <span className="min-w-0 truncate text-sm font-semibold text-[#fff7ea]">
+        {provider.provider_name}
+      </span>
+    </>
+  );
+  const className =
+    "flex min-h-14 items-center gap-3 rounded-lg border border-[#fff7ea]/10 bg-[#12100f]/44 px-3 py-2 transition hover:border-[#f0a15f]/35 hover:bg-[#fff7ea]/8 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]";
+
+  return provider.link ? (
+    <a
+      href={provider.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+    >
+      {content}
+    </a>
+  ) : (
+    <div className={className}>{content}</div>
+  );
+}
+
 export function MovieDetail({ identifier }: MovieDetailProps) {
   const isSupabaseConfigured = hasSupabaseConfig();
   const [detail, setDetail] = useState<MovieDetailState | null>(null);
@@ -635,6 +733,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         impressionsResult,
         criticReviewsResult,
         bookingLinksResult,
+        watchProvidersResult,
       ] = await Promise.all([
         supabase.auth.getUser(),
         supabase
@@ -670,6 +769,9 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
           .from("booking_links")
           .select("id, provider, url")
           .eq("movie_id", movie.id),
+        movie.tmdbId
+          ? fetchWatchProviders(movie.tmdbId)
+          : Promise.resolve({ providers: [], errorMessage: "" }),
       ]);
 
       if (!isMounted) {
@@ -768,6 +870,8 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
           (criticReviewsResult.data ?? []) as SupabaseCriticReviewRow[]
         ).map(normalizeCriticReview),
         bookingLinks,
+        watchProviders: watchProvidersResult.providers,
+        watchProviderErrorMessage: watchProvidersResult.errorMessage,
       });
       setIsLoading(false);
     }
@@ -1033,6 +1137,18 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
     () => getWatchMethodStats(detail?.impressions ?? []),
     [detail?.impressions],
   );
+  const watchProviderGroups = useMemo(
+    () =>
+      watchProviderCategoryOrder
+        .map((category) => ({
+          category,
+          providers: (detail?.watchProviders ?? []).filter(
+            (provider) => provider.category === category,
+          ),
+        }))
+        .filter((group) => group.providers.length > 0),
+    [detail?.watchProviders],
+  );
   const impressionEmotionFilters = useMemo(
     () => getUniqueImpressionEmotions(detail?.impressions ?? []),
     [detail?.impressions],
@@ -1082,6 +1198,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
       : fallbackBookingLinks;
   const shouldShowBookingLinks =
     isCurrentlyShowing || (detail?.bookingLinks.length ?? 0) > 0;
+  const shouldShowWatchProviders = Boolean(detail?.movie.tmdbId);
 
   if (isLoading) {
     return (
@@ -1213,6 +1330,9 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
             <Card className="p-6">
               <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                 <div>
+                  <p className="text-sm font-medium text-[#f2b482]">
+                    영화관에서 보기
+                  </p>
                   <h2 id="booking-links" className="text-xl font-semibold">
                     예매하러 가기
                   </h2>
@@ -1226,7 +1346,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                       key={link.id}
                       href={link.url}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       variant="secondary"
                     >
                       {link.provider}
@@ -1234,6 +1354,57 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                   ))}
                 </div>
               </div>
+            </Card>
+          </section>
+        ) : null}
+
+        {shouldShowWatchProviders ? (
+          <section className="mt-16" aria-labelledby="watch-providers">
+            <Card className="p-6 sm:p-8">
+              <div>
+                <p className="text-sm font-medium text-[#f2b482]">
+                  집에서 보기
+                </p>
+                <h2
+                  id="watch-providers"
+                  className="mt-2 text-2xl font-semibold text-[#fff7ea]"
+                >
+                  볼 수 있는 곳
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+                  제공 여부는 지역과 시점에 따라 달라질 수 있어요.
+                </p>
+              </div>
+
+              {detail.watchProviderErrorMessage ? (
+                <p className="mt-6 rounded-lg border border-[#f4c7d8]/20 bg-[#f4c7d8]/10 px-4 py-3 text-sm leading-6 text-[#f4c7d8]">
+                  {detail.watchProviderErrorMessage}
+                </p>
+              ) : watchProviderGroups.length > 0 ? (
+                <div className="mt-6 space-y-6">
+                  {watchProviderGroups.map((group) => (
+                    <div key={group.category}>
+                      <h3 className="text-sm font-semibold text-[#ffd3a3]">
+                        {group.category}
+                      </h3>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {group.providers.map((provider) => (
+                          <WatchProviderItem
+                            key={`${provider.category}-${provider.provider_id}`}
+                            provider={provider}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-lg border border-dashed border-[#fff7ea]/12 bg-[#12100f]/34 p-5">
+                  <p className="text-sm leading-6 text-[#c9ad96]">
+                    아직 확인된 시청처가 없어요.
+                  </p>
+                </div>
+              )}
             </Card>
           </section>
         ) : null}
