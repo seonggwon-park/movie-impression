@@ -1,8 +1,14 @@
 "use client";
 
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, ButtonLink, Card, EmotionTag } from "@/components/ui";
+import {
+  Button,
+  ButtonLink,
+  Card,
+  EmotionTag,
+  WatchedDatePicker,
+} from "@/components/ui";
 import type { EmotionTone } from "@/lib/emotions";
 import {
   getSupabaseBrowserClient,
@@ -108,26 +114,10 @@ function getReleaseYear(value: string | null) {
   return value ? value.slice(0, 4) : null;
 }
 
-function formatDateInputValue(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function getRelativeDateInputValue(dayOffset: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + dayOffset);
-
-  return formatDateInputValue(date);
-}
-
 export function EditImpressionForm({
   impressionId,
 }: EditImpressionFormProps) {
   const router = useRouter();
-  const watchedDateInputRef = useRef<HTMLInputElement>(null);
   const isSupabaseConfigured = hasSupabaseConfig();
   const [movie, setMovie] = useState<MovieView | null>(null);
   const [emotions, setEmotions] = useState<EmotionOption[]>([]);
@@ -521,49 +511,7 @@ export function EditImpressionForm({
             </select>
           </div>
 
-          <div>
-            <label
-              htmlFor="watched-date"
-              className="text-sm font-medium text-[#c9ad96]"
-            >
-              언제 보셨나요?
-            </label>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setWatchedAt(getRelativeDateInputValue(0))}
-                className="min-h-10 px-4 py-2 text-sm"
-              >
-                오늘
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setWatchedAt(getRelativeDateInputValue(-1))}
-                className="min-h-10 px-4 py-2 text-sm"
-              >
-                어제
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => watchedDateInputRef.current?.focus()}
-                className="min-h-10 px-4 py-2 text-sm"
-              >
-                직접 선택
-              </Button>
-            </div>
-            <input
-              ref={watchedDateInputRef}
-              id="watched-date"
-              name="watchedDate"
-              type="date"
-              value={watchedAt}
-              onChange={(event) => setWatchedAt(event.target.value)}
-              className="mt-3 w-full rounded-lg border border-[#fff7ea]/10 bg-[#12100f] px-4 py-3 text-[#e7d4c0] outline-none transition focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
-            />
-          </div>
+          <WatchedDatePicker value={watchedAt} onChange={setWatchedAt} />
         </div>
 
         <fieldset>
