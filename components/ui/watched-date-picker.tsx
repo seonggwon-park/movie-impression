@@ -11,10 +11,6 @@ type WatchedDatePickerProps = {
 };
 
 const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"];
-const monthFormatter = new Intl.DateTimeFormat("ko-KR", {
-  year: "numeric",
-  month: "long",
-});
 const selectedDateFormatter = new Intl.DateTimeFormat("ko-KR", {
   year: "numeric",
   month: "long",
@@ -88,6 +84,7 @@ export function WatchedDatePicker({
   const todayValue = getRelativeDateValue(0);
   const yesterdayValue = getRelativeDateValue(-1);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isYearPanelOpen, setIsYearPanelOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() =>
     getMonthStart(parseDateValue(value) ?? new Date()),
   );
@@ -95,6 +92,11 @@ export function WatchedDatePicker({
     () => getCalendarDays(visibleMonth),
     [visibleMonth],
   );
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+
+    return Array.from({ length: 81 }, (_, index) => currentYear - index);
+  }, []);
 
   useEffect(() => {
     if (!isCalendarOpen) {
@@ -108,12 +110,14 @@ export function WatchedDatePicker({
         !rootRef.current.contains(event.target)
       ) {
         setIsCalendarOpen(false);
+        setIsYearPanelOpen(false);
       }
     }
 
     function handleDocumentKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setIsCalendarOpen(false);
+        setIsYearPanelOpen(false);
       }
     }
 
@@ -133,11 +137,19 @@ export function WatchedDatePicker({
       setVisibleMonth(getMonthStart(nextDate));
     }
     setIsCalendarOpen(false);
+    setIsYearPanelOpen(false);
+  }
+
+  function handleUnknownDateSelect() {
+    onChange("");
+    setIsCalendarOpen(false);
+    setIsYearPanelOpen(false);
   }
 
   function handleDirectSelectClick() {
     if (!isCalendarOpen) {
       setVisibleMonth(getMonthStart(parseDateValue(value) ?? new Date()));
+      setIsYearPanelOpen(false);
     }
 
     setIsCalendarOpen((current) => !current);
@@ -154,12 +166,24 @@ export function WatchedDatePicker({
     onChange(formatDateValue(date));
     setVisibleMonth(getMonthStart(date));
     setIsCalendarOpen(false);
+    setIsYearPanelOpen(false);
+  }
+
+  function handleYearSelect(year: number) {
+    setVisibleMonth(
+      (currentMonth) =>
+        new Date(year, currentMonth.getMonth(), currentMonth.getDate()),
+    );
+    setIsYearPanelOpen(false);
   }
 
   return (
     <div ref={rootRef} className="relative">
       <p id={`${id}-label`} className="text-sm font-medium text-[#c9ad96]">
         언제 보셨나요?
+      </p>
+      <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+        정확하지 않아도 괜찮아요.
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -190,6 +214,14 @@ export function WatchedDatePicker({
         >
           직접 선택
         </Button>
+        <Button
+          type="button"
+          variant={value ? "secondary" : "primary"}
+          onClick={handleUnknownDateSelect}
+          className="min-h-10 px-4 py-2 text-sm"
+        >
+          날짜는 흐릿해요
+        </Button>
       </div>
 
       <div className="mt-3 rounded-lg border border-[#fff7ea]/10 bg-[#12100f]/56 px-4 py-3">
@@ -197,6 +229,11 @@ export function WatchedDatePicker({
         <p className="mt-1 text-sm text-[#e7d4c0]">
           {formatSelectedDate(value)}
         </p>
+        {!value ? (
+          <p className="mt-2 text-xs leading-5 text-[#c9ad96]">
+            괜찮아요. 날짜 없이 감상만 남길게요.
+          </p>
+        ) : null}
       </div>
 
       {isCalendarOpen ? (
@@ -215,12 +252,21 @@ export function WatchedDatePicker({
             >
               ‹
             </button>
-            <p
+            <div
               id={`${id}-calendar-title`}
-              className="text-sm font-semibold text-[#fff7ea]"
+              className="flex items-center gap-2 text-sm font-semibold text-[#fff7ea]"
             >
-              {monthFormatter.format(visibleMonth)}
-            </p>
+              <button
+                type="button"
+                aria-expanded={isYearPanelOpen}
+                aria-controls={`${id}-year-panel`}
+                onClick={() => setIsYearPanelOpen((current) => !current)}
+                className="rounded-full border border-[#fff7ea]/12 bg-[#fff7ea]/7 px-3 py-1.5 text-[#ffd3a3] transition hover:border-[#f0a15f]/40 hover:bg-[#fff7ea]/10 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3]"
+              >
+                {visibleMonth.getFullYear()}년
+              </button>
+              <span>{visibleMonth.getMonth() + 1}월</span>
+            </div>
             <button
               type="button"
               aria-label="다음 달 보기"
@@ -231,48 +277,82 @@ export function WatchedDatePicker({
             </button>
           </div>
 
-          <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-[#c9ad96]">
-            {weekdayLabels.map((weekday) => (
-              <span key={weekday} className="py-1">
-                {weekday}
-              </span>
-            ))}
-          </div>
+          {isYearPanelOpen ? (
+            <div
+              id={`${id}-year-panel`}
+              role="listbox"
+              aria-label="연도 선택"
+              className="mt-4 grid max-h-60 grid-cols-3 gap-2 overflow-y-auto rounded-lg border border-[#fff7ea]/10 bg-[#12100f]/44 p-2 sm:grid-cols-4"
+            >
+              {yearOptions.map((year) => {
+                const isVisibleYear = year === visibleMonth.getFullYear();
 
-          <div className="mt-1 grid grid-cols-7 gap-1">
-            {calendarDays.map((date) => {
-              const dateValue = formatDateValue(date);
-              const isSelected = value === dateValue;
-              const isToday = todayValue === dateValue;
-              const isCurrentMonth = date.getMonth() === visibleMonth.getMonth();
+                return (
+                  <button
+                    type="button"
+                    key={year}
+                    role="option"
+                    aria-selected={isVisibleYear}
+                    onClick={() => handleYearSelect(year)}
+                    className={cn(
+                      "min-h-10 rounded-md border px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-[#ffd3a3]",
+                      isVisibleYear
+                        ? "border-[#f0a15f] bg-[#ffd3a3] font-semibold text-[#1f1208]"
+                        : "border-transparent text-[#e7d4c0] hover:border-[#f0a15f]/35 hover:bg-[#fff7ea]/8",
+                    )}
+                  >
+                    {year}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <>
+              <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-[#c9ad96]">
+                {weekdayLabels.map((weekday) => (
+                  <span key={weekday} className="py-1">
+                    {weekday}
+                  </span>
+                ))}
+              </div>
 
-              return (
-                <button
-                  type="button"
-                  key={dateValue}
-                  aria-pressed={isSelected}
-                  onClick={() => handleDateSelect(date)}
-                  className={cn(
-                    "flex min-h-10 items-center justify-center rounded-md border text-sm transition focus:outline-none focus:ring-2 focus:ring-[#ffd3a3]",
-                    isSelected
-                      ? "border-[#f0a15f] bg-[#ffd3a3] font-semibold text-[#1f1208]"
-                      : "border-transparent bg-transparent text-[#e7d4c0] hover:border-[#f0a15f]/35 hover:bg-[#fff7ea]/8",
-                    !isCurrentMonth && !isSelected && "text-[#c9ad96]/40",
-                    isToday &&
-                      !isSelected &&
-                      "border-[#f0a15f]/45 text-[#ffd3a3]",
-                  )}
-                >
-                  {date.getDate()}
-                </button>
-              );
-            })}
-          </div>
+              <div className="mt-1 grid grid-cols-7 gap-1">
+                {calendarDays.map((date) => {
+                  const dateValue = formatDateValue(date);
+                  const isSelected = value === dateValue;
+                  const isToday = todayValue === dateValue;
+                  const isCurrentMonth =
+                    date.getMonth() === visibleMonth.getMonth();
+
+                  return (
+                    <button
+                      type="button"
+                      key={dateValue}
+                      aria-pressed={isSelected}
+                      onClick={() => handleDateSelect(date)}
+                      className={cn(
+                        "flex min-h-10 items-center justify-center rounded-md border text-sm transition focus:outline-none focus:ring-2 focus:ring-[#ffd3a3]",
+                        isSelected
+                          ? "border-[#f0a15f] bg-[#ffd3a3] font-semibold text-[#1f1208]"
+                          : "border-transparent bg-transparent text-[#e7d4c0] hover:border-[#f0a15f]/35 hover:bg-[#fff7ea]/8",
+                        !isCurrentMonth && !isSelected && "text-[#c9ad96]/40",
+                        isToday &&
+                          !isSelected &&
+                          "border-[#f0a15f]/45 text-[#ffd3a3]",
+                      )}
+                    >
+                      {date.getDate()}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#fff7ea]/10 pt-3">
             <button
               type="button"
-              onClick={() => onChange("")}
+              onClick={handleUnknownDateSelect}
               className="rounded-full px-3 py-2 text-xs font-medium text-[#c9ad96] transition hover:bg-[#fff7ea]/8 hover:text-[#fff7ea] focus:outline-none focus:ring-2 focus:ring-[#ffd3a3]"
             >
               날짜 비우기
