@@ -25,6 +25,7 @@ type MovieDetailProps = {
 
 type SupabaseMovieRow = {
   id: string;
+  tmdb_id: number | null;
   title: string;
   original_title: string | null;
   overview: string | null;
@@ -90,6 +91,7 @@ type EmotionView = {
 
 type MovieView = {
   id: string;
+  tmdbId: number | null;
   title: string;
   originalTitle: string | null;
   overview: string | null;
@@ -157,14 +159,20 @@ type ReportReasonValue =
 type ImpressionSortOption = "newest" | "liked" | "oldest";
 
 const fallbackBookingLinks = [
-  { id: "cgv", provider: "CGV", url: "https://www.cgv.co.kr/" },
-  { id: "megabox", provider: "메가박스", url: "https://www.megabox.co.kr/" },
+  { id: "cgv", provider: "CGV", url: "https://www.cgv.co.kr/ticket/" },
+  {
+    id: "megabox",
+    provider: "메가박스",
+    url: "https://www.megabox.co.kr/booking",
+  },
   {
     id: "lotte-cinema",
     provider: "롯데시네마",
-    url: "https://www.lottecinema.co.kr/",
+    url: "https://www.lottecinema.co.kr/NLCHS/Ticketing",
   },
 ] satisfies BookingLinkView[];
+
+const currentShowingWindowDays = 60;
 
 const reportReasons = [
   { value: "offensive", label: "불쾌한 표현" },
@@ -233,6 +241,66 @@ function getReleaseYear(value: string | null) {
   return value ? value.slice(0, 4) : null;
 }
 
+function parseDateOnly(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  date.setHours(0, 0, 0, 0);
+
+  return date;
+}
+
+function getTodayDateOnly() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return today;
+}
+
+function getDaysSinceRelease(releaseDate: string | null) {
+  const release = parseDateOnly(releaseDate);
+
+  if (!release) {
+    return null;
+  }
+
+  return Math.floor(
+    (getTodayDateOnly().getTime() - release.getTime()) /
+      (1000 * 60 * 60 * 24),
+  );
+}
+
+function isCurrentlyShowingMovie(movie: MovieView) {
+  if (!movie.tmdbId) {
+    return false;
+  }
+
+  const daysSinceRelease = getDaysSinceRelease(movie.releaseDate);
+
+  return (
+    daysSinceRelease !== null &&
+    daysSinceRelease >= 0 &&
+    daysSinceRelease <= currentShowingWindowDays
+  );
+}
+
 function formatDate(value: string | null) {
   if (!value) {
     return null;
@@ -298,6 +366,7 @@ function addLikeStateToImpressions(
 function normalizeMovie(row: SupabaseMovieRow): MovieView {
   return {
     id: row.id,
+    tmdbId: row.tmdb_id,
     title: row.title,
     originalTitle: row.original_title,
     overview: row.overview,
@@ -426,7 +495,7 @@ async function fetchMovieByIdentifier(identifier: string) {
     tmdbIdFallback,
   };
   const selectFields =
-    "id, title, original_title, overview, poster_url, release_date, runtime, genres, slug";
+    "id, tmdb_id, title, original_title, overview, poster_url, release_date, runtime, genres, slug";
 
   const slugResult = await supabase
     .from("movies")
@@ -698,8 +767,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         criticReviews: (
           (criticReviewsResult.data ?? []) as SupabaseCriticReviewRow[]
         ).map(normalizeCriticReview),
-        bookingLinks:
-          bookingLinks.length > 0 ? bookingLinks : fallbackBookingLinks,
+        bookingLinks,
       });
       setIsLoading(false);
     }
@@ -1005,10 +1073,15 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
     selectedImpressionEmotionId,
   ]);
   const topEmotion = emotionDistribution[0]?.emotion;
+  const isCurrentlyShowing = detail
+    ? isCurrentlyShowingMovie(detail.movie)
+    : false;
   const activeBookingLinks =
     detail?.bookingLinks && detail.bookingLinks.length > 0
       ? detail.bookingLinks
       : fallbackBookingLinks;
+  const shouldShowBookingLinks =
+    isCurrentlyShowing || (detail?.bookingLinks.length ?? 0) > 0;
 
   if (isLoading) {
     return (
@@ -1092,6 +1165,12 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
           />
 
           <div>
+            {isCurrentlyShowing ? (
+              <span className="mb-4 inline-flex rounded-full border border-[#f0a15f]/35 bg-[#f0a15f]/16 px-3 py-1.5 text-sm font-semibold text-[#ffd3a3]">
+                현재 상영중
+              </span>
+            ) : null}
+
             <SectionHeader
               eyebrow={`${releaseText} · ${genreText} · ${runtimeText}`}
               title={movie.title}
@@ -1129,33 +1208,35 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
           </div>
         </section>
 
-        <section className="mt-16" aria-labelledby="booking-links">
-          <Card className="p-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 id="booking-links" className="text-xl font-semibold">
-                  예매하러 가기
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
-                  상영 시간과 좌석은 각 예매처에서 확인할 수 있어요.
-                </p>
+        {shouldShowBookingLinks ? (
+          <section className="mt-16" aria-labelledby="booking-links">
+            <Card className="p-6">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 id="booking-links" className="text-xl font-semibold">
+                    예매하러 가기
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+                    각 영화관 예매 페이지로 이동해요.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  {activeBookingLinks.map((link) => (
+                    <ButtonLink
+                      key={link.id}
+                      href={link.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      variant="secondary"
+                    >
+                      {link.provider}
+                    </ButtonLink>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                {activeBookingLinks.map((link) => (
-                  <ButtonLink
-                    key={link.id}
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    variant="secondary"
-                  >
-                    {link.provider}
-                  </ButtonLink>
-                ))}
-              </div>
-            </div>
-          </Card>
-        </section>
+            </Card>
+          </section>
+        ) : null}
 
         <section className="mt-16" aria-labelledby="emotion-distribution">
           <Card className="bg-[linear-gradient(145deg,rgba(240,161,95,0.14),rgba(255,247,234,0.07))] p-6 sm:p-8">
