@@ -154,6 +154,8 @@ type ReportReasonValue =
   | "spam"
   | "other";
 
+type ImpressionSortOption = "newest" | "liked" | "oldest";
+
 const fallbackBookingLinks = [
   { id: "cgv", provider: "CGV", url: "https://www.cgv.co.kr/" },
   { id: "megabox", provider: "메가박스", url: "https://www.megabox.co.kr/" },
@@ -245,6 +247,24 @@ function formatDate(value: string | null) {
 
 function getNotePreview(note: string) {
   return note.length > 150 ? `${note.slice(0, 150)}...` : note;
+}
+
+function getCreatedAtTime(impression: ImpressionView) {
+  return impression.createdAt ? new Date(impression.createdAt).getTime() : 0;
+}
+
+function getUniqueImpressionEmotions(impressions: ImpressionView[]) {
+  const emotionsById = new Map<string, EmotionView>();
+
+  impressions.forEach((impression) => {
+    impression.emotions.forEach((emotion) => {
+      emotionsById.set(emotion.id, emotion);
+    });
+  });
+
+  return [...emotionsById.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, "ko-KR"),
+  );
 }
 
 function isDuplicateReportError(error: { code?: string; message: string }) {
@@ -486,6 +506,11 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
     null,
   );
   const [likeErrorMessage, setLikeErrorMessage] = useState("");
+  const [impressionSort, setImpressionSort] =
+    useState<ImpressionSortOption>("newest");
+  const [selectedImpressionEmotionId, setSelectedImpressionEmotionId] =
+    useState("all");
+  const [excludeSpoilers, setExcludeSpoilers] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -940,6 +965,45 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
     () => getWatchMethodStats(detail?.impressions ?? []),
     [detail?.impressions],
   );
+  const impressionEmotionFilters = useMemo(
+    () => getUniqueImpressionEmotions(detail?.impressions ?? []),
+    [detail?.impressions],
+  );
+  const visibleImpressions = useMemo(() => {
+    const selectedEmotionId =
+      selectedImpressionEmotionId === "all"
+        ? null
+        : selectedImpressionEmotionId;
+    const filteredImpressions = (detail?.impressions ?? [])
+      .filter((impression) =>
+        selectedEmotionId
+          ? impression.emotions.some((emotion) => emotion.id === selectedEmotionId)
+          : true,
+      )
+      .filter((impression) =>
+        excludeSpoilers ? !impression.isSpoiler : true,
+      );
+
+    return [...filteredImpressions].sort((a, b) => {
+      if (impressionSort === "liked") {
+        return (
+          b.likeCount - a.likeCount ||
+          getCreatedAtTime(b) - getCreatedAtTime(a)
+        );
+      }
+
+      if (impressionSort === "oldest") {
+        return getCreatedAtTime(a) - getCreatedAtTime(b);
+      }
+
+      return getCreatedAtTime(b) - getCreatedAtTime(a);
+    });
+  }, [
+    detail?.impressions,
+    excludeSpoilers,
+    impressionSort,
+    selectedImpressionEmotionId,
+  ]);
   const topEmotion = emotionDistribution[0]?.emotion;
   const activeBookingLinks =
     detail?.bookingLinks && detail.bookingLinks.length > 0
@@ -1209,7 +1273,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-2xl font-semibold text-[#fff7ea]">
-                  사람들이 남긴 한 줄 감상
+                  사람들의 감상
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
                   긴 글보다 먼저 남은 감정의 기록들.
@@ -1237,8 +1301,69 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
             ) : null}
 
             {detail.impressions.length > 0 ? (
-              <div className="mt-8 space-y-5">
-                {detail.impressions.map((impression) => {
+              <div className="mt-6 rounded-lg border border-[#fff7ea]/10 bg-[#fff7ea]/5 p-4">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#f2b482]">
+                      정렬
+                    </span>
+                    <select
+                      value={impressionSort}
+                      onChange={(event) =>
+                        setImpressionSort(
+                          event.target.value as ImpressionSortOption,
+                        )
+                      }
+                      className="mt-2 w-full rounded-lg border border-[#fff7ea]/12 bg-[#12100f] px-4 py-3 text-sm font-medium text-[#fff7ea] outline-none transition focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
+                    >
+                      <option value="newest">최신순</option>
+                      <option value="liked">공감순</option>
+                      <option value="oldest">오래된순</option>
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#f2b482]">
+                      감정
+                    </span>
+                    <select
+                      value={selectedImpressionEmotionId}
+                      onChange={(event) =>
+                        setSelectedImpressionEmotionId(event.target.value)
+                      }
+                      className="mt-2 w-full rounded-lg border border-[#fff7ea]/12 bg-[#12100f] px-4 py-3 text-sm font-medium text-[#fff7ea] outline-none transition focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
+                    >
+                      <option value="all">전체 감정</option>
+                      {impressionEmotionFilters.map((emotion) => (
+                        <option key={emotion.id} value={emotion.id}>
+                          {getEmotionLabel(emotion)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button
+                    type="button"
+                    aria-pressed={excludeSpoilers}
+                    onClick={() =>
+                      setExcludeSpoilers((currentValue) => !currentValue)
+                    }
+                    className={`rounded-lg border px-4 py-3 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f] ${
+                      excludeSpoilers
+                        ? "border-[#f0a15f]/55 bg-[#f0a15f]/20 text-[#ffd3a3]"
+                        : "border-[#fff7ea]/12 bg-[#12100f] text-[#e7d4c0] hover:border-[#f0a15f]/35 hover:text-[#ffd3a3]"
+                    }`}
+                  >
+                    스포일러 제외
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {detail.impressions.length > 0 ? (
+              visibleImpressions.length > 0 ? (
+              <div className="mt-6 space-y-5">
+                {visibleImpressions.map((impression) => {
                   const watchedDate = formatDate(impression.watchedAt);
                   const createdDate = formatDate(impression.createdAt);
                   const watchMethodLabel = getWatchMethodLabel(
@@ -1415,6 +1540,16 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                   );
                 })}
               </div>
+              ) : (
+                <Card className="mt-6 border-dashed bg-[#fff7ea]/5 text-center">
+                  <p className="text-base font-semibold leading-7 text-[#fff7ea]">
+                    조건에 맞는 감상이 없어요.
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+                    필터를 바꿔 다시 둘러보세요.
+                  </p>
+                </Card>
+              )
             ) : (
               <Card className="mt-8 border-dashed bg-[#fff7ea]/5 text-center">
                 <p className="text-base leading-7 text-[#e7d4c0]">

@@ -13,5 +13,5 @@ export default async function MovieDetailPage({
 }: MovieDetailPageProps) {
   const { id } = await params;
 
-  return <MovieDetail identifier={id} />;
+  return <MovieDetail key={id} identifier={id} />;
 }
