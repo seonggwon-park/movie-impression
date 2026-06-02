@@ -156,6 +156,7 @@ type MovieDetailState = {
   criticReviews: CriticReviewView[];
   bookingLinks: BookingLinkView[];
   watchProviders: WatchProviderView[];
+  watchProviderLink: string | null;
   watchProviderErrorMessage: string;
 };
 
@@ -594,6 +595,7 @@ async function fetchWatchProviders(tmdbId: number) {
 
       return {
         providers: [],
+        link: null,
         errorMessage:
           data?.message ?? "시청처 정보를 불러오는 중 문제가 생겼어요.",
       };
@@ -601,6 +603,10 @@ async function fetchWatchProviders(tmdbId: number) {
 
     return {
       providers: data?.providers ?? [],
+      link:
+        data?.link ??
+        data?.providers?.find((provider) => provider.link)?.link ??
+        null,
       errorMessage: "",
     };
   } catch (error) {
@@ -608,14 +614,15 @@ async function fetchWatchProviders(tmdbId: number) {
 
     return {
       providers: [],
+      link: null,
       errorMessage: "시청처 정보를 불러오는 중 문제가 생겼어요.",
     };
   }
 }
 
 function WatchProviderItem({ provider }: { provider: WatchProviderView }) {
-  const content = (
-    <>
+  return (
+    <div className="flex min-h-14 items-center gap-3 rounded-lg border border-[#fff7ea]/10 bg-[#12100f]/44 px-3 py-2">
       {provider.logo_url ? (
         <span
           aria-hidden="true"
@@ -633,22 +640,7 @@ function WatchProviderItem({ provider }: { provider: WatchProviderView }) {
       <span className="min-w-0 truncate text-sm font-semibold text-[#fff7ea]">
         {provider.provider_name}
       </span>
-    </>
-  );
-  const className =
-    "flex min-h-14 items-center gap-3 rounded-lg border border-[#fff7ea]/10 bg-[#12100f]/44 px-3 py-2 transition hover:border-[#f0a15f]/35 hover:bg-[#fff7ea]/8 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]";
-
-  return provider.link ? (
-    <a
-      href={provider.link}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={className}
-    >
-      {content}
-    </a>
-  ) : (
-    <div className={className}>{content}</div>
+    </div>
   );
 }
 
@@ -771,7 +763,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
           .eq("movie_id", movie.id),
         movie.tmdbId
           ? fetchWatchProviders(movie.tmdbId)
-          : Promise.resolve({ providers: [], errorMessage: "" }),
+          : Promise.resolve({ providers: [], link: null, errorMessage: "" }),
       ]);
 
       if (!isMounted) {
@@ -871,6 +863,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         ).map(normalizeCriticReview),
         bookingLinks,
         watchProviders: watchProvidersResult.providers,
+        watchProviderLink: watchProvidersResult.link,
         watchProviderErrorMessage: watchProvidersResult.errorMessage,
       });
       setIsLoading(false);
@@ -1374,6 +1367,9 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                 <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
                   제공 여부는 지역과 시점에 따라 달라질 수 있어요.
                 </p>
+                <p className="mt-1 text-sm leading-6 text-[#c9ad96]">
+                  아래 목록은 현재 확인된 시청처예요.
+                </p>
               </div>
 
               {detail.watchProviderErrorMessage ? (
@@ -1397,6 +1393,18 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                       </div>
                     </div>
                   ))}
+                  {detail.watchProviderLink ? (
+                    <div className="border-t border-[#fff7ea]/10 pt-5">
+                      <ButtonLink
+                        href={detail.watchProviderLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        variant="secondary"
+                      >
+                        시청처 한 번에 확인하기
+                      </ButtonLink>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="mt-6 rounded-lg border border-dashed border-[#fff7ea]/12 bg-[#12100f]/34 p-5">
