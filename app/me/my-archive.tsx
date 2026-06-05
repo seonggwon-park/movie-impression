@@ -11,7 +11,11 @@ import {
   PageContainer,
   SectionHeader,
 } from "@/components/ui";
-import { ImpressionShareCard } from "@/components/share/impression-share-card";
+import {
+  ImpressionShareCard,
+  shareCardLayoutOptions,
+  type ImpressionShareCardLayout,
+} from "@/components/share/impression-share-card";
 import type { EmotionTone } from "@/lib/emotions";
 import {
   getSupabaseBrowserClient,
@@ -267,6 +271,8 @@ export function MyArchive() {
   const [userEmailPrefix, setUserEmailPrefix] = useState("");
   const [sharePreviewImpression, setSharePreviewImpression] =
     useState<ImpressionView | null>(null);
+  const [selectedShareCardLayout, setSelectedShareCardLayout] =
+    useState<ImpressionShareCardLayout>("poster");
   const [isExportingShareCard, setIsExportingShareCard] = useState(false);
   const [shareExportErrorMessage, setShareExportErrorMessage] = useState("");
 
@@ -510,6 +516,7 @@ export function MyArchive() {
 
   function openSharePreview(impression: ImpressionView) {
     setShareExportErrorMessage("");
+    setSelectedShareCardLayout("poster");
     setSharePreviewImpression(impression);
   }
 
@@ -1003,9 +1010,50 @@ export function MyArchive() {
         >
           <div className="mx-auto flex min-h-full max-w-5xl items-center justify-center">
             <Card className="w-full border-[#fff7ea]/14 bg-[#171311] p-4 shadow-[0_34px_120px_rgba(0,0,0,0.58)] sm:p-6">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p
+                    id="share-card-layout-label"
+                    className="text-sm font-medium text-[#f2b482]"
+                  >
+                    카드 레이아웃
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-[#c9ad96]">
+                    감상의 분위기에 맞는 카드 모양을 골라보세요.
+                  </p>
+                </div>
+                <div
+                  role="radiogroup"
+                  aria-labelledby="share-card-layout-label"
+                  className="grid w-full grid-cols-3 gap-1 rounded-full border border-[#fff7ea]/12 bg-[#0d0a09]/70 p-1 sm:w-auto sm:min-w-[300px]"
+                >
+                  {shareCardLayoutOptions.map((option) => {
+                    const isSelected = option.id === selectedShareCardLayout;
+
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        onClick={() => setSelectedShareCardLayout(option.id)}
+                        className={`min-h-9 rounded-full px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#ffd3a3]/40 ${
+                          isSelected
+                            ? "bg-[#ffd3a3] text-[#1f1208] shadow-[0_10px_28px_rgba(240,161,95,0.22)]"
+                            : "text-[#e7d4c0] hover:bg-[#fff7ea]/8 hover:text-[#fff7ea]"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] lg:items-center">
                 <ImpressionShareCard
                   ref={shareCardRef}
+                  layout={selectedShareCardLayout}
                   movieTitle={sharePreviewImpression.movie.title}
                   releaseYear={sharePreviewReleaseYear}
                   posterUrl={sharePreviewImpression.movie.posterUrl}
