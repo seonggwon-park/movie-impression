@@ -2,7 +2,6 @@ import { forwardRef, type ReactElement } from "react";
 import { PosterLayout } from "@/components/share/share-card-layouts/poster-layout";
 import { QuoteLayout } from "@/components/share/share-card-layouts/quote-layout";
 import { TicketLayoutOne } from "@/components/share/share-card-layouts/ticket-layout-one";
-import { TicketLayoutThree } from "@/components/share/share-card-layouts/ticket-layout-three";
 import { TicketLayoutTwo } from "@/components/share/share-card-layouts/ticket-layout-two";
 import {
   shareCardLayoutOptions,
@@ -20,7 +19,6 @@ const layoutComponents = {
   quote: QuoteLayout,
   "ticket-one": TicketLayoutOne,
   "ticket-two": TicketLayoutTwo,
-  "ticket-three": TicketLayoutThree,
 } satisfies Record<
   ShareCardLayout,
   (props: ShareCardLayoutProps) => ReactElement

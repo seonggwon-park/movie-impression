@@ -2,8 +2,7 @@ type ShareCardQuoteVariant =
   | "poster"
   | "quote"
   | "ticket-one"
-  | "ticket-two"
-  | "ticket-three";
+  | "ticket-two";
 
 type ShareCardQuoteSize = "short" | "mediumLarge" | "medium" | "small" | "compact";
 
@@ -17,8 +16,7 @@ const quoteMaxLengthByVariant = {
   poster: 132,
   quote: 156,
   "ticket-one": 118,
-  "ticket-two": 124,
-  "ticket-three": 138,
+  "ticket-two": 138,
 } satisfies Record<ShareCardQuoteVariant, number>;
 
 const quoteClassNames = {
@@ -44,13 +42,6 @@ const quoteClassNames = {
     compact: "text-[14px] leading-[1.52]",
   },
   "ticket-two": {
-    short: "text-[21px] leading-snug",
-    mediumLarge: "text-[20px] leading-snug",
-    medium: "text-[18px] leading-[1.42]",
-    small: "text-[16px] leading-[1.48]",
-    compact: "text-[14px] leading-[1.54]",
-  },
-  "ticket-three": {
     short: "text-[23px] leading-snug",
     mediumLarge: "text-[21px] leading-snug",
     medium: "text-[19px] leading-[1.42]",
