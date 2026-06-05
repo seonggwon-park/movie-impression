@@ -1,10 +1,15 @@
 import {
   EmotionChips,
   PosterBackdrop,
-  PosterImageLayer,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
 import { ShareCardQuote } from "@/components/share/share-card-quote";
+
+const softCinemaGrainStyle = {
+  backgroundImage:
+    "radial-gradient(circle at 18% 28%, rgba(255,247,234,0.24) 0 0.55px, transparent 0.8px), radial-gradient(circle at 78% 62%, rgba(242,180,130,0.18) 0 0.45px, transparent 0.75px)",
+  backgroundSize: "11px 11px, 15px 15px",
+};
 
 function MemoryTicketNotches() {
   return (
@@ -92,17 +97,20 @@ export function TicketLayoutThree({
         <PosterBackdrop
           posterUrl={posterUrl}
           className="relative min-h-0 flex-[1.08] overflow-hidden"
-          overlay="linear-gradient(180deg,rgba(14,9,9,0.22),rgba(28,17,18,0.38)_38%,rgba(14,9,9,0.92))"
+          overlay="linear-gradient(180deg,rgba(8,6,5,0.44),rgba(18,12,11,0.5)_36%,rgba(9,6,5,0.94))"
         >
-          {posterUrl ? (
-            <PosterImageLayer
-              posterUrl={posterUrl}
-              className="scale-105 opacity-[0.58]"
-            />
-          ) : null}
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-[radial-gradient(circle_at_32%_22%,rgba(255,211,163,0.18),transparent_34%),linear-gradient(180deg,rgba(9,6,5,0.28),rgba(24,14,14,0.44)_38%,rgba(9,6,5,0.9))]"
+            className="absolute inset-0 bg-[linear-gradient(120deg,rgba(118,62,35,0.18),rgba(34,19,15,0.12)_48%,rgba(8,6,5,0.24))]"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(5,4,3,0.48)_100%)]"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 opacity-[0.07]"
+            style={softCinemaGrainStyle}
           />
           <div className="absolute left-5 right-5 top-5 z-10 flex items-center justify-between gap-3">
             <p className="whitespace-nowrap text-[9px] font-semibold tracking-[0.24em] text-[#ffd3a3]">
