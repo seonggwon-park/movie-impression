@@ -158,6 +158,8 @@ type MovieDetailState = {
   watchProviders: WatchProviderView[];
   watchProviderLink: string | null;
   watchProviderErrorMessage: string;
+  expectationCount: number;
+  expectedByCurrentUser: boolean;
 };
 
 type MovieLookupDebug = {
@@ -327,6 +329,12 @@ function isCurrentlyShowingMovie(movie: MovieView) {
   );
 }
 
+function isUpcomingMovie(movie: MovieView) {
+  const release = parseDateOnly(movie.releaseDate);
+
+  return Boolean(release && release.getTime() > getTodayDateOnly().getTime());
+}
+
 function formatDate(value: string | null) {
   if (!value) {
     return null;
@@ -373,6 +381,14 @@ function isDuplicateLikeError(error: { code?: string; message: string }) {
   return (
     error.code === "23505" ||
     error.message.includes("impression_likes_impression_user_unique") ||
+    error.message.toLowerCase().includes("duplicate")
+  );
+}
+
+function isDuplicateExpectationError(error: { code?: string; message: string }) {
+  return (
+    error.code === "23505" ||
+    error.message.includes("movie_expectations_movie_user_unique") ||
     error.message.toLowerCase().includes("duplicate")
   );
 }
@@ -620,6 +636,44 @@ async function fetchWatchProviders(tmdbId: number) {
   }
 }
 
+async function fetchMovieExpectationState(
+  supabase: ReturnType<typeof getSupabaseBrowserClient>,
+  movieId: string,
+  currentUserId: string | null,
+) {
+  const { count, error: countError } = await supabase
+    .from("movie_expectations")
+    .select("id", { count: "exact", head: true })
+    .eq("movie_id", movieId);
+
+  if (countError) {
+    console.error("Supabase movie expectation count load failed", countError);
+  }
+
+  if (!currentUserId) {
+    return {
+      expectationCount: count ?? 0,
+      expectedByCurrentUser: false,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("movie_expectations")
+    .select("id")
+    .eq("movie_id", movieId)
+    .eq("user_id", currentUserId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Supabase current user movie expectation load failed", error);
+  }
+
+  return {
+    expectationCount: count ?? 0,
+    expectedByCurrentUser: Boolean(data && !error),
+  };
+}
+
 function WatchProviderItem({ provider }: { provider: WatchProviderView }) {
   return (
     <div className="flex min-h-14 items-center gap-3 rounded-lg border border-[#fff7ea]/10 bg-[#12100f]/44 px-3 py-2">
@@ -665,6 +719,8 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
     null,
   );
   const [likeErrorMessage, setLikeErrorMessage] = useState("");
+  const [isTogglingExpectation, setIsTogglingExpectation] = useState(false);
+  const [expectationErrorMessage, setExpectationErrorMessage] = useState("");
   const [impressionSort, setImpressionSort] =
     useState<ImpressionSortOption>("newest");
   const [selectedImpressionEmotionId, setSelectedImpressionEmotionId] =
@@ -845,6 +901,16 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         }
       }
 
+      const expectationState = await fetchMovieExpectationState(
+        supabase,
+        movie.id,
+        currentUser?.id ?? null,
+      );
+
+      if (!isMounted) {
+        return;
+      }
+
       const impressionsWithLikes = addLikeStateToImpressions(
         impressions,
         likeCounts,
@@ -865,6 +931,8 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
         watchProviders: watchProvidersResult.providers,
         watchProviderLink: watchProvidersResult.link,
         watchProviderErrorMessage: watchProvidersResult.errorMessage,
+        expectationCount: expectationState.expectationCount,
+        expectedByCurrentUser: expectationState.expectedByCurrentUser,
       });
       setIsLoading(false);
     }
@@ -1122,6 +1190,117 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
     updateImpressionLikeState(impression.id, true, 1);
   }
 
+  function updateMovieExpectationState(
+    expectedByCurrentUser: boolean,
+    expectationCountDelta: number,
+  ) {
+    setDetail((currentDetail) => {
+      if (!currentDetail) {
+        return currentDetail;
+      }
+
+      return {
+        ...currentDetail,
+        expectedByCurrentUser,
+        expectationCount: Math.max(
+          0,
+          currentDetail.expectationCount + expectationCountDelta,
+        ),
+      };
+    });
+  }
+
+  async function handleToggleExpectation() {
+    if (!detail || isTogglingExpectation) {
+      return;
+    }
+
+    setExpectationErrorMessage("");
+
+    if (!isSupabaseConfigured) {
+      setExpectationErrorMessage(
+        "기대를 저장하는 중 문제가 생겼어요. Supabase 환경변수를 확인해주세요.",
+      );
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error(
+        "Supabase getUser failed before movie expectation toggle",
+        userError,
+      );
+    }
+
+    if (!userData.user) {
+      setCurrentUserId(null);
+      setExpectationErrorMessage("로그인 후 기대를 남길 수 있어요.");
+      return;
+    }
+
+    setCurrentUserId(userData.user.id);
+    setIsTogglingExpectation(true);
+
+    if (detail.expectedByCurrentUser) {
+      const { error } = await supabase
+        .from("movie_expectations")
+        .delete()
+        .eq("movie_id", detail.movie.id)
+        .eq("user_id", userData.user.id);
+
+      setIsTogglingExpectation(false);
+
+      if (error) {
+        console.error("Supabase movie expectation delete failed", error);
+        setExpectationErrorMessage("기대를 취소하는 중 문제가 생겼어요.");
+        return;
+      }
+
+      updateMovieExpectationState(false, -1);
+      return;
+    }
+
+    const { error: profileError } = await upsertUserProfile(
+      supabase,
+      userData.user,
+    );
+
+    if (profileError) {
+      console.error(
+        "Supabase profile upsert failed before movie expectation",
+        profileError,
+      );
+      setExpectationErrorMessage(
+        `기대를 저장하는 중 문제가 생겼어요. ${profileError.message}`,
+      );
+      setIsTogglingExpectation(false);
+      return;
+    }
+
+    const { error } = await supabase.from("movie_expectations").insert({
+      movie_id: detail.movie.id,
+      user_id: userData.user.id,
+    });
+
+    setIsTogglingExpectation(false);
+
+    if (error) {
+      console.error("Supabase movie expectation insert failed", error);
+
+      if (isDuplicateExpectationError(error)) {
+        updateMovieExpectationState(true, 0);
+        return;
+      }
+
+      setExpectationErrorMessage("기대를 저장하는 중 문제가 생겼어요.");
+      return;
+    }
+
+    updateMovieExpectationState(true, 1);
+  }
+
   const emotionDistribution = useMemo(
     () => getEmotionDistribution(detail?.impressions ?? []),
     [detail?.impressions],
@@ -1182,6 +1361,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
     selectedImpressionEmotionId,
   ]);
   const topEmotion = emotionDistribution[0]?.emotion;
+  const isUpcoming = detail ? isUpcomingMovie(detail.movie) : false;
   const isCurrentlyShowing = detail
     ? isCurrentlyShowingMovie(detail.movie)
     : false;
@@ -1240,6 +1420,8 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
 
   const { movie } = detail;
   const releaseText = movie.releaseYear ?? "개봉일 미상";
+  const releaseDateText = formatDate(movie.releaseDate);
+  const releaseDetailText = releaseDateText ?? releaseText;
   const genreText = movie.genres.length > 0 ? movie.genres.join(", ") : "장르 미상";
   const runtimeText = movie.runtimeLabel ?? "상영 시간 미상";
   const ctaHref = `/impressions/new?movieId=${encodeURIComponent(movie.id)}`;
@@ -1275,10 +1457,19 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
           />
 
           <div>
-            {isCurrentlyShowing ? (
-              <span className="mb-4 inline-flex rounded-full border border-[#f0a15f]/35 bg-[#f0a15f]/16 px-3 py-1.5 text-sm font-semibold text-[#ffd3a3]">
-                현재 상영중
-              </span>
+            {isUpcoming || isCurrentlyShowing ? (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {isUpcoming ? (
+                  <span className="inline-flex rounded-full border border-[#f4c7d8]/35 bg-[#f4c7d8]/14 px-3 py-1.5 text-sm font-semibold text-[#f4c7d8]">
+                    개봉 예정
+                  </span>
+                ) : null}
+                {!isUpcoming && isCurrentlyShowing ? (
+                  <span className="inline-flex rounded-full border border-[#f0a15f]/35 bg-[#f0a15f]/16 px-3 py-1.5 text-sm font-semibold text-[#ffd3a3]">
+                    현재 상영중
+                  </span>
+                ) : null}
+              </div>
             ) : null}
 
             <SectionHeader
@@ -1294,6 +1485,42 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
               </p>
             ) : null}
 
+            {isUpcoming ? (
+              <p className="mt-4 text-sm leading-6 text-[#f2b482]">
+                개봉 예정 영화예요.
+                {releaseDateText ? ` ${releaseDateText} 개봉 예정이에요.` : ""}
+              </p>
+            ) : null}
+
+            <Card className="mt-8 bg-[#fff7ea]/9 p-6">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[#f2b482]">기대</p>
+                  <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+                    기다리는 마음이 있다면 가볍게 남겨보세요.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-pressed={detail.expectedByCurrentUser}
+                  disabled={isTogglingExpectation}
+                  onClick={handleToggleExpectation}
+                  className={`inline-flex w-fit items-center justify-center rounded-full border px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f] disabled:cursor-not-allowed disabled:opacity-60 ${
+                    detail.expectedByCurrentUser
+                      ? "border-[#f0a15f]/60 bg-[#ffd3a3] text-[#1f1208]"
+                      : "border-[#fff7ea]/14 bg-[#12100f]/35 text-[#e7d4c0] hover:border-[#f0a15f]/45 hover:text-[#ffd3a3]"
+                  }`}
+                >
+                  기대돼요 {detail.expectationCount.toLocaleString("ko-KR")}
+                </button>
+              </div>
+              {expectationErrorMessage ? (
+                <p className="mt-4 rounded-lg border border-[#f4c7d8]/24 bg-[#f4c7d8]/10 px-4 py-3 text-sm leading-6 text-[#f4c7d8]">
+                  {expectationErrorMessage}
+                </p>
+              ) : null}
+            </Card>
+
             <Card className="mt-8 bg-[#fff7ea]/9 p-6">
               <p className="text-sm font-medium text-[#f2b482]">대표 감정</p>
               <p className="mt-4 text-2xl font-semibold leading-9 text-[#fff7ea]">
@@ -1305,7 +1532,7 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
 
             <dl className="mt-6 grid gap-4 sm:grid-cols-3">
               {[
-                ["개봉", releaseText],
+                ["개봉", releaseDetailText],
                 ["장르", genreText],
                 ["상영 시간", runtimeText],
               ].map(([label, value]) => (

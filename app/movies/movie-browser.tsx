@@ -46,6 +46,11 @@ type SupabaseImpressionRow = {
     | null;
 };
 
+type SupabaseExpectationRow = {
+  movie_id: string;
+  created_at: string | null;
+};
+
 type EmotionView = {
   id: string;
   name: string;
@@ -87,6 +92,8 @@ type MovieView = {
   emotionVariety: number;
   latestImpressionAt: string | null;
   featuredImpressions: ImpressionPreview[];
+  expectationCount: number;
+  isUpcoming: boolean;
 };
 
 type PopularImpressionView = {
@@ -154,6 +161,51 @@ function getTimestamp(value: string | null) {
   return value ? new Date(value).getTime() : 0;
 }
 
+function parseDateOnly(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const [yearPart, monthPart, dayPart] = value.split("-");
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  const day = Number(dayPart);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+
+  return date;
+}
+
+function getTodayDateOnly() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return today;
+}
+
+function isUpcomingRelease(releaseDate: string | null) {
+  const release = parseDateOnly(releaseDate);
+
+  return Boolean(release && release.getTime() > getTodayDateOnly().getTime());
+}
+
+function formatReleaseDate(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(value));
+}
+
 function getEmotionLabel(emotion: EmotionView) {
   return emotion.emoji ? `${emotion.emoji} ${emotion.name}` : emotion.name;
 }
@@ -215,6 +267,7 @@ function movieHasEveryEmotion(
 function createMovieViews(
   movies: SupabaseMovieRow[],
   impressions: SupabaseImpressionRow[],
+  expectations: SupabaseExpectationRow[],
 ) {
   const statsByMovieId = new Map<
     string,
@@ -225,6 +278,14 @@ function createMovieViews(
       latestImpressionAt: string | null;
     }
   >();
+  const expectationCountsByMovieId = new Map<string, number>();
+
+  expectations.forEach((expectation) => {
+    expectationCountsByMovieId.set(
+      expectation.movie_id,
+      (expectationCountsByMovieId.get(expectation.movie_id) ?? 0) + 1,
+    );
+  });
 
   impressions.forEach((impression) => {
     const stats = statsByMovieId.get(impression.movie_id) ?? {
@@ -293,6 +354,8 @@ function createMovieViews(
       emotionVariety: stats?.emotionCounts.size ?? 0,
       latestImpressionAt: stats?.latestImpressionAt ?? null,
       featuredImpressions,
+      expectationCount: expectationCountsByMovieId.get(movie.id) ?? 0,
+      isUpcoming: isUpcomingRelease(movie.release_date),
     };
   });
 }
@@ -452,6 +515,80 @@ function TodayPopularImpressionsCard({
                       </span>
                     ) : null}
                   </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Card>
+  );
+}
+
+function ExpectedMoviesCard({ movies }: { movies: MovieView[] }) {
+  return (
+    <Card className="p-5">
+      <h2 className="text-lg font-semibold text-[#fff7ea]">
+        기대 많이 받은 영화
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+        사람들이 기다리고 있는 영화예요.
+      </p>
+
+      {movies.length === 0 ? (
+        <div className="mt-5 rounded-lg border border-dashed border-[#fff7ea]/12 bg-[#12100f]/32 px-4 py-5">
+          <p className="text-sm font-medium text-[#fff7ea]">
+            아직 기대가 모인 영화가 없어요.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+            기다리는 영화에 기대를 남겨보세요.
+          </p>
+        </div>
+      ) : (
+        <ol className="mt-5 space-y-3">
+          {movies.map((movie, index) => {
+            const releaseText =
+              formatReleaseDate(movie.releaseDate) ??
+              movie.releaseYear ??
+              "개봉일 미상";
+
+            return (
+              <li key={movie.id}>
+                <Link
+                  href={getMovieHref(movie)}
+                  aria-label={`${movie.title} 상세 페이지 보기`}
+                  className="group grid grid-cols-[58px_minmax(0,1fr)] gap-3 rounded-lg border border-[#fff7ea]/8 bg-[#12100f]/38 p-3 transition hover:border-[#f0a15f]/28 hover:bg-[#fff7ea]/8 focus:outline-none focus:ring-2 focus:ring-[#ffd3a3] focus:ring-offset-2 focus:ring-offset-[#12100f]"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="aspect-[2/3] rounded-md bg-[linear-gradient(145deg,rgba(240,161,95,0.24),rgba(244,199,216,0.13)_46%,rgba(18,16,15,0.88))] bg-cover bg-center"
+                    style={
+                      movie.posterUrl
+                        ? {
+                            backgroundImage: `url(${movie.posterUrl})`,
+                          }
+                        : undefined
+                    }
+                  />
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-2 text-xs text-[#c9ad96]">
+                      <span>{index + 1}</span>
+                      {movie.isUpcoming ? (
+                        <span className="rounded-full border border-[#f4c7d8]/30 bg-[#f4c7d8]/10 px-2 py-0.5 font-semibold text-[#f4c7d8]">
+                          개봉 예정
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="mt-1 block truncate text-base font-semibold text-[#fff7ea] group-hover:text-[#ffd3a3]">
+                      {movie.title}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-[#c9ad96]">
+                      {releaseText}
+                    </span>
+                    <span className="mt-3 inline-flex rounded-full border border-[#f0a15f]/28 bg-[#f0a15f]/10 px-3 py-1 text-xs font-semibold text-[#ffd3a3]">
+                      기대돼요 {movie.expectationCount.toLocaleString("ko-KR")}
+                    </span>
+                  </span>
                 </Link>
               </li>
             );
@@ -737,7 +874,7 @@ export function MovieBrowser() {
     let isMounted = true;
 
     async function loadMovies() {
-      const [moviesResult, impressionsResult, emotionsResult] =
+      const [moviesResult, impressionsResult, emotionsResult, expectationsResult] =
         await Promise.all([
           supabase
             .from("movies")
@@ -760,6 +897,10 @@ export function MovieBrowser() {
           )
         `).order("created_at", { ascending: false }),
           supabase.from("emotions").select("id, name, emoji").order("name"),
+          supabase
+            .from("movie_expectations")
+            .select("movie_id, created_at")
+            .order("created_at", { ascending: false }),
         ]);
 
       if (!isMounted) {
@@ -789,10 +930,18 @@ export function MovieBrowser() {
         );
       }
 
+      if (expectationsResult.error) {
+        console.error(
+          "Supabase movie expectation stats load failed",
+          expectationsResult.error,
+        );
+      }
+
       setMovies(
         createMovieViews(
           (moviesResult.data ?? []) as SupabaseMovieRow[],
           (impressionsResult.data ?? []) as SupabaseImpressionRow[],
+          (expectationsResult.data ?? []) as SupabaseExpectationRow[],
         ),
       );
       setEmotions(
@@ -902,6 +1051,19 @@ export function MovieBrowser() {
         .slice(0, 8),
     [filteredMovies],
   );
+  const expectedMovies = useMemo(
+    () =>
+      [...movies]
+        .filter((movie) => movie.expectationCount > 0)
+        .sort(
+          (a, b) =>
+            b.expectationCount - a.expectationCount ||
+            Number(b.isUpcoming) - Number(a.isUpcoming) ||
+            getTimestamp(b.createdAt) - getTimestamp(a.createdAt),
+        )
+        .slice(0, 3),
+    [movies],
+  );
 
   const movieCountsByEmotion = useMemo(() => {
     const counts = new Map<string, number>();
@@ -1006,11 +1168,14 @@ export function MovieBrowser() {
       ) : (
         <>
           <section className="mt-14 grid gap-6 xl:grid-cols-[minmax(280px,0.36fr)_minmax(0,1fr)]">
-            <TodayPopularImpressionsCard
-              impressions={popularImpressions}
-              isLoading={isPopularImpressionsLoading}
-              errorMessage={popularImpressionsErrorMessage}
-            />
+            <div className="space-y-6">
+              <TodayPopularImpressionsCard
+                impressions={popularImpressions}
+                isLoading={isPopularImpressionsLoading}
+                errorMessage={popularImpressionsErrorMessage}
+              />
+              <ExpectedMoviesCard movies={expectedMovies} />
+            </div>
             <FeaturedMovieCarousel movies={featuredMovies} />
           </section>
 
