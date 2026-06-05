@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { toBlob } from "html-to-image";
+import { toBlob, toPng } from "html-to-image";
 import { useRouter } from "next/navigation";
 import {
   Button,
@@ -92,6 +92,12 @@ type ImpressionView = {
 
 const missingSupabaseEnvMessage =
   "Supabase 환경변수가 설정되지 않았어요. .env.local을 확인해주세요.";
+const shareCardExportWidth = 360;
+const shareCardExportHeight = 640;
+const shareCardExportPixelRatio = 3;
+const minimumShareCardBlobSize = 12_000;
+const transparentImagePlaceholder =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
 const emotionToneByName: Record<string, EmotionTone> = {
   먹먹함: "warm",
@@ -251,6 +257,168 @@ function downloadObjectUrl(objectUrl: string, fileName: string) {
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+function getCssImageUrls(value: string) {
+  const urls: string[] = [];
+  const cssUrlPattern = /url\((['"]?)(.*?)\1\)/g;
+  let match = cssUrlPattern.exec(value);
+
+  while (match) {
+    const url = match[2]?.trim();
+
+    if (url && !url.startsWith("data:")) {
+      urls.push(url);
+    }
+
+    match = cssUrlPattern.exec(value);
+  }
+
+  return urls;
+}
+
+function getShareCardBackgroundImageUrls(target: HTMLElement) {
+  const elements = [target, ...Array.from(target.querySelectorAll("*"))];
+  const urls = new Set<string>();
+
+  elements.forEach((element) => {
+    if (!(element instanceof HTMLElement)) {
+      return;
+    }
+
+    getCssImageUrls(window.getComputedStyle(element).backgroundImage).forEach(
+      (url) => urls.add(url),
+    );
+  });
+
+  return Array.from(urls);
+}
+
+function preloadImageUrl(url: string) {
+  return new Promise<{ url: string; didLoad: boolean }>((resolve) => {
+    const image = new Image();
+    const timeout = window.setTimeout(() => {
+      resolve({ url, didLoad: false });
+    }, 4500);
+
+    image.crossOrigin = "anonymous";
+    image.decoding = "async";
+    image.onload = () => {
+      window.clearTimeout(timeout);
+      resolve({ url, didLoad: image.naturalWidth > 0 });
+    };
+    image.onerror = () => {
+      window.clearTimeout(timeout);
+      resolve({ url, didLoad: false });
+    };
+    image.src = url;
+  });
+}
+
+async function getFailedShareCardImageUrls(target: HTMLElement) {
+  const imageUrls = getShareCardBackgroundImageUrls(target);
+
+  if (imageUrls.length === 0) {
+    return [];
+  }
+
+  const results = await Promise.all(imageUrls.map(preloadImageUrl));
+
+  return results
+    .filter((result) => !result.didLoad)
+    .map((result) => result.url);
+}
+
+function removeFailedBackgroundUrls(
+  backgroundImage: string,
+  failedUrls: string[],
+) {
+  return failedUrls.reduce((currentValue, failedUrl) => {
+    const escapedUrl = failedUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const quotedUrlPattern = new RegExp(
+      `url\\((['"]?)${escapedUrl}\\1\\)`,
+      "g",
+    );
+
+    return currentValue.replace(quotedUrlPattern, "none");
+  }, backgroundImage);
+}
+
+function temporarilyDisableFailedBackgroundImages(
+  target: HTMLElement,
+  failedUrls: string[],
+) {
+  if (failedUrls.length === 0) {
+    return () => {};
+  }
+
+  const restoreCallbacks: Array<() => void> = [];
+  const elements = [target, ...Array.from(target.querySelectorAll("*"))];
+
+  elements.forEach((element) => {
+    if (!(element instanceof HTMLElement)) {
+      return;
+    }
+
+    const inlineBackgroundImage = element.style.backgroundImage;
+
+    if (!inlineBackgroundImage) {
+      return;
+    }
+
+    const nextBackgroundImage = removeFailedBackgroundUrls(
+      inlineBackgroundImage,
+      failedUrls,
+    );
+
+    if (nextBackgroundImage === inlineBackgroundImage) {
+      return;
+    }
+
+    element.style.backgroundImage = nextBackgroundImage;
+    restoreCallbacks.push(() => {
+      element.style.backgroundImage = inlineBackgroundImage;
+    });
+  });
+
+  return () => {
+    restoreCallbacks.forEach((restore) => restore());
+  };
+}
+
+async function blobFromDataUrl(dataUrl: string) {
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
+async function createShareCardBlob(target: HTMLElement) {
+  const exportOptions = {
+    cacheBust: true,
+    pixelRatio: shareCardExportPixelRatio,
+    width: shareCardExportWidth,
+    height: shareCardExportHeight,
+    canvasWidth: shareCardExportWidth,
+    canvasHeight: shareCardExportHeight,
+    backgroundColor: "#12100f",
+    imagePlaceholder: transparentImagePlaceholder,
+  };
+
+  const blob = await toBlob(target, exportOptions);
+
+  if (blob && blob.size >= minimumShareCardBlobSize) {
+    return blob;
+  }
+
+  const dataUrl = await toPng(target, exportOptions);
+  const fallbackBlob = await blobFromDataUrl(dataUrl);
+
+  if (!fallbackBlob || fallbackBlob.size < minimumShareCardBlobSize) {
+    throw new Error(
+      `Share card image blob was suspiciously small: ${fallbackBlob?.size ?? 0}`,
+    );
+  }
+
+  return fallbackBlob;
 }
 
 export function MyArchive() {
@@ -557,16 +725,29 @@ export function MyArchive() {
     setShareExportFallbackUrl("");
 
     try {
-      const blob = await toBlob(shareCardExportRef.current, {
-        cacheBust: true,
-        pixelRatio: 1,
-        backgroundColor: "#12100f",
-      });
+      const exportTarget = shareCardExportRef.current;
 
-      if (!blob) {
-        throw new Error("Share card image blob was empty.");
+      if (process.env.NODE_ENV === "development") {
+        const rect = exportTarget.getBoundingClientRect();
+
+        console.info("Share card export target", {
+          layout: selectedShareCardLayout,
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          childCount: exportTarget.childElementCount,
+        });
       }
 
+      const failedImageUrls = await getFailedShareCardImageUrls(exportTarget);
+      const restoreBackgroundImages =
+        temporarilyDisableFailedBackgroundImages(
+          exportTarget,
+          failedImageUrls,
+        );
+
+      const blob = await createShareCardBlob(exportTarget).finally(
+        restoreBackgroundImages,
+      );
       const objectUrl = URL.createObjectURL(blob);
       const fileName = getSafeDownloadFileName(
         sharePreviewImpression.movie.title,
@@ -1180,24 +1361,22 @@ export function MyArchive() {
 
       {sharePreviewImpression ? (
         <div
-          ref={shareCardExportRef}
           aria-hidden="true"
-          className="pointer-events-none fixed left-[-10000px] top-0 h-[1920px] w-[1080px] overflow-hidden bg-[#12100f]"
+          className="pointer-events-none fixed left-[-10000px] top-0 h-[640px] w-[360px] overflow-visible bg-[#12100f] opacity-100"
         >
-          <div className="h-[640px] w-[360px] origin-top-left scale-[3]">
-            <ImpressionShareCard
-              layout={selectedShareCardLayout}
-              movieTitle={sharePreviewImpression.movie.title}
-              releaseYear={sharePreviewReleaseYear}
-              posterUrl={sharePreviewImpression.movie.posterUrl}
-              emotions={sharePreviewImpression.emotions}
-              quote={sharePreviewQuote}
-              rating={sharePreviewImpression.rating}
-              watchedDate={sharePreviewWatchedDate}
-              watchMethodLabel={sharePreviewWatchMethodLabel}
-              authorName={sharePreviewAuthorName}
-            />
-          </div>
+          <ImpressionShareCard
+            ref={shareCardExportRef}
+            layout={selectedShareCardLayout}
+            movieTitle={sharePreviewImpression.movie.title}
+            releaseYear={sharePreviewReleaseYear}
+            posterUrl={sharePreviewImpression.movie.posterUrl}
+            emotions={sharePreviewImpression.emotions}
+            quote={sharePreviewQuote}
+            rating={sharePreviewImpression.rating}
+            watchedDate={sharePreviewWatchedDate}
+            watchMethodLabel={sharePreviewWatchMethodLabel}
+            authorName={sharePreviewAuthorName}
+          />
         </div>
       ) : null}
     </main>
