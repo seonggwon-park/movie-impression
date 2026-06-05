@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { toPng } from "html-to-image";
+import { toBlob } from "html-to-image";
 import { useRouter } from "next/navigation";
 import {
   Button,
@@ -243,16 +243,19 @@ function getShareCardAuthorName(
   return "여운 사용자";
 }
 
-function downloadDataUrl(dataUrl: string, fileName: string) {
+function downloadObjectUrl(objectUrl: string, fileName: string) {
   const link = document.createElement("a");
-  link.href = dataUrl;
+  link.href = objectUrl;
   link.download = fileName;
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
   link.click();
+  link.remove();
 }
 
 export function MyArchive() {
   const router = useRouter();
-  const shareCardRef = useRef<HTMLDivElement | null>(null);
+  const shareCardExportRef = useRef<HTMLDivElement | null>(null);
   const isSupabaseConfigured = hasSupabaseConfig();
   const [impressions, setImpressions] = useState<ImpressionView[]>([]);
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
@@ -275,6 +278,8 @@ export function MyArchive() {
     useState<ImpressionShareCardLayout>("poster");
   const [isExportingShareCard, setIsExportingShareCard] = useState(false);
   const [shareExportErrorMessage, setShareExportErrorMessage] = useState("");
+  const [shareExportHelpMessage, setShareExportHelpMessage] = useState("");
+  const [shareExportFallbackUrl, setShareExportFallbackUrl] = useState("");
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -385,6 +390,14 @@ export function MyArchive() {
       isMounted = false;
     };
   }, [isSupabaseConfigured, router]);
+
+  useEffect(() => {
+    return () => {
+      if (shareExportFallbackUrl) {
+        URL.revokeObjectURL(shareExportFallbackUrl);
+      }
+    };
+  }, [shareExportFallbackUrl]);
 
   async function handleDeleteImpression(impressionId: string) {
     const confirmed = window.confirm(
@@ -516,39 +529,62 @@ export function MyArchive() {
 
   function openSharePreview(impression: ImpressionView) {
     setShareExportErrorMessage("");
+    setShareExportHelpMessage("");
+    setShareExportFallbackUrl("");
     setSelectedShareCardLayout("poster");
     setSharePreviewImpression(impression);
   }
 
   function closeSharePreview() {
     setShareExportErrorMessage("");
+    setShareExportHelpMessage("");
+    setShareExportFallbackUrl("");
     setSharePreviewImpression(null);
   }
 
   async function handleExportShareCard() {
-    if (!sharePreviewImpression || !shareCardRef.current || isExportingShareCard) {
+    if (
+      !sharePreviewImpression ||
+      !shareCardExportRef.current ||
+      isExportingShareCard
+    ) {
       return;
     }
 
     setIsExportingShareCard(true);
     setShareExportErrorMessage("");
+    setShareExportHelpMessage("");
+    setShareExportFallbackUrl("");
 
     try {
-      const dataUrl = await toPng(shareCardRef.current, {
+      const blob = await toBlob(shareCardExportRef.current, {
         cacheBust: true,
-        pixelRatio: 2.5,
+        pixelRatio: 1,
         backgroundColor: "#12100f",
       });
 
-      downloadDataUrl(
-        dataUrl,
-        getSafeDownloadFileName(sharePreviewImpression.movie.title),
+      if (!blob) {
+        throw new Error("Share card image blob was empty.");
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      const fileName = getSafeDownloadFileName(
+        sharePreviewImpression.movie.title,
+      );
+
+      try {
+        downloadObjectUrl(objectUrl, fileName);
+      } catch (downloadError) {
+        console.error("Share card download click failed", downloadError);
+      }
+
+      setShareExportFallbackUrl(objectUrl);
+      setShareExportHelpMessage(
+        "저장이 잘 안 되면 이미지 열기를 눌러 열린 이미지를 길게 눌러 저장해주세요.",
       );
     } catch (error) {
       console.error("Share card PNG export failed", error);
-      setShareExportErrorMessage(
-        "포스터 이미지를 포함해 저장하는 중 문제가 생겼어요. 잠시 후 다시 시도해주세요.",
-      );
+      setShareExportErrorMessage("이미지를 저장하는 중 문제가 생겼어요.");
     } finally {
       setIsExportingShareCard(false);
     }
@@ -1008,7 +1044,7 @@ export function MyArchive() {
           aria-labelledby="share-card-preview-title"
           className="fixed inset-0 z-50 overflow-y-auto bg-[#050403]/82 px-4 py-6 backdrop-blur-sm sm:px-6"
         >
-          <div className="mx-auto flex min-h-full max-w-5xl items-center justify-center">
+          <div className="mx-auto flex min-h-full max-w-5xl items-start justify-center sm:items-center">
             <Card className="w-full border-[#fff7ea]/14 bg-[#171311] p-4 shadow-[0_34px_120px_rgba(0,0,0,0.58)] sm:p-6">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -1051,19 +1087,20 @@ export function MyArchive() {
               </div>
 
               <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] lg:items-center">
-                <ImpressionShareCard
-                  ref={shareCardRef}
-                  layout={selectedShareCardLayout}
-                  movieTitle={sharePreviewImpression.movie.title}
-                  releaseYear={sharePreviewReleaseYear}
-                  posterUrl={sharePreviewImpression.movie.posterUrl}
-                  emotions={sharePreviewImpression.emotions}
-                  quote={sharePreviewQuote}
-                  rating={sharePreviewImpression.rating}
-                  watchedDate={sharePreviewWatchedDate}
-                  watchMethodLabel={sharePreviewWatchMethodLabel}
-                  authorName={sharePreviewAuthorName}
-                />
+                <div className="mx-auto flex w-full max-w-[360px] justify-center">
+                  <ImpressionShareCard
+                    layout={selectedShareCardLayout}
+                    movieTitle={sharePreviewImpression.movie.title}
+                    releaseYear={sharePreviewReleaseYear}
+                    posterUrl={sharePreviewImpression.movie.posterUrl}
+                    emotions={sharePreviewImpression.emotions}
+                    quote={sharePreviewQuote}
+                    rating={sharePreviewImpression.rating}
+                    watchedDate={sharePreviewWatchedDate}
+                    watchMethodLabel={sharePreviewWatchMethodLabel}
+                    authorName={sharePreviewAuthorName}
+                  />
+                </div>
 
                 <div className="lg:pl-2">
                   <p className="text-sm font-medium text-[#f2b482]">
@@ -1087,6 +1124,25 @@ export function MyArchive() {
                   {shareExportErrorMessage ? (
                     <p className="mt-4 rounded-lg border border-[#f4c7d8]/24 bg-[#f4c7d8]/10 px-4 py-3 text-sm leading-6 text-[#f4c7d8]">
                       {shareExportErrorMessage}
+                    </p>
+                  ) : null}
+
+                  {shareExportHelpMessage ? (
+                    <p className="mt-4 rounded-lg border border-[#f0a15f]/24 bg-[#f0a15f]/10 px-4 py-3 text-sm leading-6 text-[#ffd3a3]">
+                      {shareExportHelpMessage}
+                      {shareExportFallbackUrl ? (
+                        <>
+                          {" "}
+                          <a
+                            href={shareExportFallbackUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold underline decoration-[#ffd3a3]/50 underline-offset-4"
+                          >
+                            이미지 열기
+                          </a>
+                        </>
+                      ) : null}
                     </p>
                   ) : null}
 
@@ -1118,6 +1174,29 @@ export function MyArchive() {
                 </div>
               </div>
             </Card>
+          </div>
+        </div>
+      ) : null}
+
+      {sharePreviewImpression ? (
+        <div
+          ref={shareCardExportRef}
+          aria-hidden="true"
+          className="pointer-events-none fixed left-[-10000px] top-0 h-[1920px] w-[1080px] overflow-hidden bg-[#12100f]"
+        >
+          <div className="h-[640px] w-[360px] origin-top-left scale-[3]">
+            <ImpressionShareCard
+              layout={selectedShareCardLayout}
+              movieTitle={sharePreviewImpression.movie.title}
+              releaseYear={sharePreviewReleaseYear}
+              posterUrl={sharePreviewImpression.movie.posterUrl}
+              emotions={sharePreviewImpression.emotions}
+              quote={sharePreviewQuote}
+              rating={sharePreviewImpression.rating}
+              watchedDate={sharePreviewWatchedDate}
+              watchMethodLabel={sharePreviewWatchMethodLabel}
+              authorName={sharePreviewAuthorName}
+            />
           </div>
         </div>
       ) : null}
