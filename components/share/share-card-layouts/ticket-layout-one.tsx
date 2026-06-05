@@ -9,10 +9,27 @@ function TicketNotch({ side }: { side: "left" | "right" }) {
   return (
     <span
       aria-hidden="true"
-      className={`absolute top-[47.5%] z-30 h-10 w-10 -translate-y-1/2 rounded-full border border-[#fff7ea]/14 bg-[#050403] shadow-[inset_0_0_18px_rgba(255,211,163,0.08)] ${
+      className={`absolute top-1/2 z-30 h-10 w-10 -translate-y-1/2 rounded-full border border-[#fff7ea]/14 bg-[#050403] shadow-[inset_0_0_18px_rgba(255,211,163,0.08)] ${
         side === "left" ? "-left-5" : "-right-5"
       }`}
     />
+  );
+}
+
+function TicketPerforation() {
+  return (
+    <div className="relative h-7 shrink-0 bg-[#15100e]">
+      <TicketNotch side="left" />
+      <TicketNotch side="right" />
+      <div
+        aria-hidden="true"
+        className="absolute left-4 right-4 top-1/2 -translate-y-1/2 border-t border-dashed border-[#ffd3a3]/38"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute left-4 right-4 top-1/2 h-px -translate-y-1/2 bg-[linear-gradient(90deg,transparent,rgba(255,211,163,0.26),transparent)]"
+      />
+    </div>
   );
 }
 
@@ -39,7 +56,7 @@ function TicketInfoItem({
   );
 }
 
-export function TicketLayout({
+export function TicketLayoutOne({
   movieTitle,
   releaseYear,
   posterUrl,
@@ -55,21 +72,9 @@ export function TicketLayout({
   return (
     <div className="relative h-full bg-[radial-gradient(circle_at_top_left,rgba(240,161,95,0.2),transparent_34%),linear-gradient(180deg,#15100e,#0b0807_72%)] p-3">
       <div className="relative flex h-full flex-col overflow-hidden rounded-[22px] border border-[#ffd3a3]/24 bg-[#15100e] shadow-[inset_0_0_0_1px_rgba(255,247,234,0.045)]">
-        <TicketNotch side="left" />
-        <TicketNotch side="right" />
-
-        <div
-          aria-hidden="true"
-          className="absolute left-4 right-4 top-[47.5%] z-20 -translate-y-1/2 border-t border-dashed border-[#ffd3a3]/38"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute left-4 right-4 top-[47.5%] z-20 h-px -translate-y-1/2 bg-[linear-gradient(90deg,transparent,rgba(255,211,163,0.26),transparent)]"
-        />
-
         <PosterBackdrop
           posterUrl={posterUrl}
-          className="relative min-h-0 flex-[0.98]"
+          className="relative min-h-0 flex-[0.9]"
           overlay="linear-gradient(180deg,rgba(18,16,15,0.04),rgba(18,16,15,0.76))"
         >
           <div
@@ -97,7 +102,9 @@ export function TicketLayout({
           </div>
         </PosterBackdrop>
 
-        <div className="relative flex flex-[1.02] flex-col justify-between px-5 pb-5 pt-7">
+        <TicketPerforation />
+
+        <div className="relative flex min-h-0 flex-[1.1] flex-col justify-between px-5 pb-5 pt-4">
           <div>
             <div className="flex items-center justify-between gap-3">
               <p className="whitespace-nowrap text-[10px] font-semibold tracking-[0.22em] text-[#f2b482]/82">
@@ -114,11 +121,11 @@ export function TicketLayout({
               className="mt-3"
             />
 
-            <div className="mt-5">
+            <div className="mt-4">
               <p className="text-[10px] font-semibold tracking-[0.22em] text-[#f2b482]/82">
                 NOTE
               </p>
-              <p className="mt-2 text-[20px] font-semibold leading-snug text-[#fff7ea]">
+              <p className="mt-2 text-[19px] font-semibold leading-snug text-[#fff7ea]">
                 “{displayQuote}”
               </p>
             </div>
