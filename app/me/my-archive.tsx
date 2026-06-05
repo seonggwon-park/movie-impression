@@ -36,6 +36,8 @@ type SupabaseEmotionRow = {
 type SupabaseImpressionRow = {
   id: string;
   one_line: string;
+  memorable_scene: string | null;
+  personal_sentence: string | null;
   note: string | null;
   rating: number | null;
   watched_at: string | null;
@@ -66,6 +68,8 @@ type EmotionView = {
 type ImpressionView = {
   id: string;
   oneLine: string;
+  memorableScene: string | null;
+  personalSentence: string | null;
   note: string | null;
   rating: number | null;
   watchedAt: string | null;
@@ -144,6 +148,8 @@ function normalizeImpression(row: SupabaseImpressionRow): ImpressionView {
   return {
     id: row.id,
     oneLine: row.one_line,
+    memorableScene: row.memorable_scene,
+    personalSentence: row.personal_sentence,
     note: row.note,
     rating: row.rating,
     watchedAt: row.watched_at,
@@ -237,6 +243,8 @@ export function MyArchive() {
           `
           id,
           one_line,
+          memorable_scene,
+          personal_sentence,
           note,
           rating,
           watched_at,
@@ -540,6 +548,36 @@ export function MyArchive() {
                               <p className="mt-6 text-xl leading-8 text-[#fff7ea]">
                                 “{impression.oneLine}”
                               </p>
+
+                              {impression.memorableScene ||
+                              impression.personalSentence ? (
+                                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                  {impression.memorableScene ? (
+                                    <div className="rounded-lg border border-[#fff7ea]/8 bg-[#fff7ea]/5 p-4">
+                                      <p className="text-xs font-semibold text-[#f2b482]">
+                                        인상 깊었던 장면
+                                      </p>
+                                      <p className="mt-2 text-sm leading-6 text-[#e7d4c0]">
+                                        {getNotePreview(
+                                          impression.memorableScene,
+                                        )}
+                                      </p>
+                                    </div>
+                                  ) : null}
+                                  {impression.personalSentence ? (
+                                    <div className="rounded-lg border border-[#fff7ea]/8 bg-[#fff7ea]/5 p-4">
+                                      <p className="text-xs font-semibold text-[#f2b482]">
+                                        오늘의 문장
+                                      </p>
+                                      <p className="mt-2 text-sm leading-6 text-[#e7d4c0]">
+                                        {getNotePreview(
+                                          impression.personalSentence,
+                                        )}
+                                      </p>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : null}
 
                               {impression.note ? (
                                 <p className="mt-4 max-w-3xl text-sm leading-7 text-[#e7d4c0]">

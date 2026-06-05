@@ -114,6 +114,8 @@ export function ImpressionForm() {
   const [selectedMovieId, setSelectedMovieId] = useState("");
   const [selectedEmotionIds, setSelectedEmotionIds] = useState<string[]>([]);
   const [oneLine, setOneLine] = useState("");
+  const [memorableScene, setMemorableScene] = useState("");
+  const [personalSentence, setPersonalSentence] = useState("");
   const [note, setNote] = useState("");
   const [rating, setRating] = useState("");
   const [watchedAt, setWatchedAt] = useState(() =>
@@ -394,6 +396,8 @@ export function ImpressionForm() {
         user_id: userData.user.id,
         movie_id: selectedMovieId,
         one_line: trimmedOneLine,
+        memorable_scene: memorableScene.trim() || null,
+        personal_sentence: personalSentence.trim() || null,
         note: note.trim() || null,
         rating: rating ? Number(rating) : null,
         is_spoiler: isSpoiler,
@@ -653,6 +657,44 @@ export function ImpressionForm() {
             placeholder="영화가 끝나고 어떤 마음이 남았나요?"
             className="mt-3 w-full resize-none rounded-lg border border-[#fff7ea]/12 bg-[#12100f] px-4 py-3 leading-7 text-[#fff7ea] outline-none transition placeholder:text-[#c9ad96]/70 focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
           />
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <label
+              htmlFor="memorable-scene"
+              className="text-sm font-medium text-[#f2b482]"
+            >
+              인상 깊었던 장면
+            </label>
+            <textarea
+              id="memorable-scene"
+              name="memorableScene"
+              rows={3}
+              value={memorableScene}
+              onChange={(event) => setMemorableScene(event.target.value)}
+              placeholder="오래 남은 장면이나 순간을 적어보세요."
+              className="mt-3 w-full resize-none rounded-lg border border-[#fff7ea]/12 bg-[#12100f] px-4 py-3 leading-7 text-[#fff7ea] outline-none transition placeholder:text-[#c9ad96]/70 focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="personal-sentence"
+              className="text-sm font-medium text-[#f2b482]"
+            >
+              오늘의 문장
+            </label>
+            <textarea
+              id="personal-sentence"
+              name="personalSentence"
+              rows={3}
+              value={personalSentence}
+              onChange={(event) => setPersonalSentence(event.target.value)}
+              placeholder="이 영화를 보고 남은 나만의 문장을 적어보세요."
+              className="mt-3 w-full resize-none rounded-lg border border-[#fff7ea]/12 bg-[#12100f] px-4 py-3 leading-7 text-[#fff7ea] outline-none transition placeholder:text-[#c9ad96]/70 focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
+            />
+          </div>
         </div>
 
         <div>

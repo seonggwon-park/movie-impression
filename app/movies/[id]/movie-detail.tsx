@@ -46,6 +46,8 @@ type SupabaseImpressionRow = {
   id: string;
   user_id: string | null;
   one_line: string;
+  memorable_scene: string | null;
+  personal_sentence: string | null;
   note: string | null;
   rating: number | null;
   is_spoiler: boolean | null;
@@ -107,6 +109,8 @@ type ImpressionView = {
   id: string;
   userId: string | null;
   oneLine: string;
+  memorableScene: string | null;
+  personalSentence: string | null;
   note: string | null;
   rating: string | null;
   isSpoiler: boolean;
@@ -432,6 +436,8 @@ function normalizeImpression(row: SupabaseImpressionRow): ImpressionView {
     id: row.id,
     userId: row.user_id,
     oneLine: row.one_line,
+    memorableScene: row.memorable_scene,
+    personalSentence: row.personal_sentence,
     note: row.note,
     rating: row.rating ? String(row.rating) : null,
     isSpoiler: Boolean(row.is_spoiler),
@@ -791,6 +797,8 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
               id,
               user_id,
               one_line,
+              memorable_scene,
+              personal_sentence,
               note,
               rating,
               is_spoiler,
@@ -1889,6 +1897,31 @@ export function MovieDetail({ identifier }: MovieDetailProps) {
                       <p className="mt-4 text-lg leading-8 text-[#f1ddc9]">
                         “{impression.oneLine}”
                       </p>
+                      {impression.memorableScene ||
+                      impression.personalSentence ? (
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                          {impression.memorableScene ? (
+                            <div className="rounded-lg border border-[#fff7ea]/8 bg-[#fff7ea]/5 p-4">
+                              <p className="text-xs font-semibold text-[#f2b482]">
+                                인상 깊었던 장면
+                              </p>
+                              <p className="mt-2 text-sm leading-6 text-[#e7d4c0]">
+                                {getNotePreview(impression.memorableScene)}
+                              </p>
+                            </div>
+                          ) : null}
+                          {impression.personalSentence ? (
+                            <div className="rounded-lg border border-[#fff7ea]/8 bg-[#fff7ea]/5 p-4">
+                              <p className="text-xs font-semibold text-[#f2b482]">
+                                오늘의 문장
+                              </p>
+                              <p className="mt-2 text-sm leading-6 text-[#e7d4c0]">
+                                {getNotePreview(impression.personalSentence)}
+                              </p>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {impression.note ? (
                         <p className="mt-3 text-sm leading-7 text-[#e7d4c0]">
                           {getNotePreview(impression.note)}
