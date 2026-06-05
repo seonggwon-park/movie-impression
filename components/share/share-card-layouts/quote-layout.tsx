@@ -4,9 +4,9 @@ import {
   PosterBackdrop,
   ShareCardFooter,
   ShareCardMeta,
-  getPreviewText,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
+import { ShareCardQuote } from "@/components/share/share-card-quote";
 
 export function QuoteLayout({
   movieTitle,
@@ -19,8 +19,6 @@ export function QuoteLayout({
   watchMethodLabel,
   authorName,
 }: ShareCardLayoutProps) {
-  const displayQuote = getPreviewText(quote, 118);
-
   return (
     <div className="relative h-full overflow-hidden bg-[#100d0d]">
       <PosterImageLayer posterUrl={posterUrl} className="opacity-[0.42]" />
@@ -56,9 +54,7 @@ export function QuoteLayout({
 
         <div className="my-6">
           <EmotionChips emotions={emotions} density="compact" />
-          <p className="mt-6 text-[27px] font-semibold leading-snug text-[#fff7ea]">
-            “{displayQuote}”
-          </p>
+          <ShareCardQuote text={quote} variant="quote" className="mt-6" />
         </div>
 
         <div>

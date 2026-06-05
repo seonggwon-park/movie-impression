@@ -3,9 +3,9 @@ import {
   PosterBackdrop,
   ShareCardFooter,
   ShareCardMeta,
-  getPreviewText,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
+import { ShareCardQuote } from "@/components/share/share-card-quote";
 
 export function PosterLayout({
   movieTitle,
@@ -18,8 +18,6 @@ export function PosterLayout({
   watchMethodLabel,
   authorName,
 }: ShareCardLayoutProps) {
-  const displayQuote = getPreviewText(quote, 108);
-
   return (
     <div className="flex h-full flex-col bg-[radial-gradient(circle_at_top_left,rgba(240,161,95,0.24),transparent_36%),linear-gradient(180deg,rgba(18,16,15,0.18),#12100f_58%)]">
       <PosterBackdrop
@@ -40,9 +38,7 @@ export function PosterLayout({
       <div className="flex flex-[0.86] flex-col justify-between px-6 pb-6 pt-6">
         <div>
           <EmotionChips emotions={emotions} />
-          <p className="mt-5 text-[22px] font-semibold leading-snug text-[#fff7ea]">
-            “{displayQuote}”
-          </p>
+          <ShareCardQuote text={quote} variant="poster" className="mt-5" />
         </div>
 
         <div>

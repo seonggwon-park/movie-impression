@@ -2,9 +2,9 @@ import {
   EmotionChips,
   PosterBackdrop,
   PosterImageLayer,
-  getPreviewText,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
+import { ShareCardQuote } from "@/components/share/share-card-quote";
 
 function MemoryTicketNotches() {
   return (
@@ -78,7 +78,6 @@ export function TicketLayoutThree({
   watchMethodLabel,
   authorName,
 }: ShareCardLayoutProps) {
-  const displayQuote = getPreviewText(quote, 112);
   const hasMetadata = Boolean(watchedDate || watchMethodLabel || rating);
 
   return (
@@ -149,9 +148,11 @@ export function TicketLayoutThree({
               <p className="text-[9px] font-semibold tracking-[0.2em] text-[#f2b482]/76">
                 MEMORY NOTE
               </p>
-              <p className="mt-2 text-[21px] font-semibold leading-snug text-[#fff7ea]">
-                “{displayQuote}”
-              </p>
+              <ShareCardQuote
+                text={quote}
+                variant="ticket-three"
+                className="mt-2"
+              />
             </div>
           </div>
 

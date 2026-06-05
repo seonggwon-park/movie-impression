@@ -96,10 +96,6 @@ export function getEmotionLabel(emotion: ShareCardEmotion) {
   return emotion.emoji ? `${emotion.emoji} ${emotion.name}` : emotion.name;
 }
 
-export function getPreviewText(value: string, maxLength: number) {
-  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
-}
-
 export function getEmotionChipClassName(
   emotionName: string,
   density: EmotionChipsProps["density"] = "default",

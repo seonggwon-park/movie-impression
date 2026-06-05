@@ -1,9 +1,9 @@
 import {
   EmotionChips,
   PosterBackdrop,
-  getPreviewText,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
+import { ShareCardQuote } from "@/components/share/share-card-quote";
 
 function CollectorInfo({
   label,
@@ -62,8 +62,6 @@ export function TicketLayoutTwo({
   watchMethodLabel,
   authorName,
 }: ShareCardLayoutProps) {
-  const displayQuote = getPreviewText(quote, 102);
-
   return (
     <div className="relative h-full bg-[linear-gradient(145deg,#080605,#17100b_46%,#0e0b0a)] p-3 text-[#fff7ea]">
       <div className="relative flex h-full flex-col overflow-hidden rounded-[18px] border border-[#d7a766]/34 bg-[#120e0c] shadow-[inset_0_0_0_1px_rgba(255,247,234,0.055)]">
@@ -131,9 +129,11 @@ export function TicketLayoutTwo({
               className="mt-3"
             />
 
-            <p className="mt-5 text-[20px] font-semibold leading-snug text-[#fff7ea]">
-              “{displayQuote}”
-            </p>
+            <ShareCardQuote
+              text={quote}
+              variant="ticket-two"
+              className="mt-5"
+            />
           </div>
 
           <div>

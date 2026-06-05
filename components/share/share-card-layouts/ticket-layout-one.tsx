@@ -1,9 +1,9 @@
 import {
   EmotionChips,
   PosterBackdrop,
-  getPreviewText,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
+import { ShareCardQuote } from "@/components/share/share-card-quote";
 
 function TicketNotch({ side }: { side: "left" | "right" }) {
   return (
@@ -67,8 +67,6 @@ export function TicketLayoutOne({
   watchMethodLabel,
   authorName,
 }: ShareCardLayoutProps) {
-  const displayQuote = getPreviewText(quote, 96);
-
   return (
     <div className="relative h-full bg-[radial-gradient(circle_at_top_left,rgba(240,161,95,0.2),transparent_34%),linear-gradient(180deg,#15100e,#0b0807_72%)] p-3">
       <div className="relative flex h-full flex-col overflow-hidden rounded-[22px] border border-[#ffd3a3]/24 bg-[#15100e] shadow-[inset_0_0_0_1px_rgba(255,247,234,0.045)]">
@@ -125,9 +123,11 @@ export function TicketLayoutOne({
               <p className="text-[10px] font-semibold tracking-[0.22em] text-[#f2b482]/82">
                 NOTE
               </p>
-              <p className="mt-2 text-[19px] font-semibold leading-snug text-[#fff7ea]">
-                “{displayQuote}”
-              </p>
+              <ShareCardQuote
+                text={quote}
+                variant="ticket-one"
+                className="mt-2"
+              />
             </div>
           </div>
 
