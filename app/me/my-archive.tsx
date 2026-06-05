@@ -1223,10 +1223,10 @@ export function MyArchive() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="share-card-preview-title"
-          className="fixed inset-0 z-50 overflow-y-auto bg-[#050403]/82 px-4 py-6 backdrop-blur-sm sm:px-6"
+          className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-[#050403]/82 px-3 py-3 backdrop-blur-sm sm:px-6 sm:py-6"
         >
-          <div className="mx-auto flex min-h-full max-w-5xl items-start justify-center sm:items-center">
-            <Card className="w-full border-[#fff7ea]/14 bg-[#171311] p-4 shadow-[0_34px_120px_rgba(0,0,0,0.58)] sm:p-6">
+          <div className="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-5xl items-start justify-center pb-8 sm:min-h-[calc(100dvh-3rem)] sm:items-center sm:pb-0">
+            <Card className="max-h-[calc(100dvh-1.5rem)] w-full overflow-y-auto overflow-x-hidden border-[#fff7ea]/14 bg-[#171311] p-4 shadow-[0_34px_120px_rgba(0,0,0,0.58)] sm:max-h-[calc(100dvh-3rem)] sm:p-6">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p
@@ -1267,20 +1267,22 @@ export function MyArchive() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] lg:items-center">
-                <div className="mx-auto flex w-full max-w-[360px] justify-center">
-                  <ImpressionShareCard
-                    layout={selectedShareCardLayout}
-                    movieTitle={sharePreviewImpression.movie.title}
-                    releaseYear={sharePreviewReleaseYear}
-                    posterUrl={sharePreviewImpression.movie.posterUrl}
-                    emotions={sharePreviewImpression.emotions}
-                    quote={sharePreviewQuote}
-                    rating={sharePreviewImpression.rating}
-                    watchedDate={sharePreviewWatchedDate}
-                    watchMethodLabel={sharePreviewWatchMethodLabel}
-                    authorName={sharePreviewAuthorName}
-                  />
+              <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(240px,360px)_minmax(0,1fr)] lg:items-center">
+                <div className="mx-auto flex w-full justify-center overflow-visible py-1">
+                  <div className="w-full max-w-[300px] sm:max-w-[360px]">
+                    <ImpressionShareCard
+                      layout={selectedShareCardLayout}
+                      movieTitle={sharePreviewImpression.movie.title}
+                      releaseYear={sharePreviewReleaseYear}
+                      posterUrl={sharePreviewImpression.movie.posterUrl}
+                      emotions={sharePreviewImpression.emotions}
+                      quote={sharePreviewQuote}
+                      rating={sharePreviewImpression.rating}
+                      watchedDate={sharePreviewWatchedDate}
+                      watchMethodLabel={sharePreviewWatchMethodLabel}
+                      authorName={sharePreviewAuthorName}
+                    />
+                  </div>
                 </div>
 
                 <div className="lg:pl-2">
