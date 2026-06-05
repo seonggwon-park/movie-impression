@@ -1025,7 +1025,7 @@ export function MyArchive() {
                 <div
                   role="radiogroup"
                   aria-labelledby="share-card-layout-label"
-                  className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-[#fff7ea]/12 bg-[#0d0a09]/70 p-1 sm:w-auto sm:min-w-[360px] sm:grid-cols-4 sm:rounded-full"
+                  className="grid w-full grid-cols-2 gap-1 rounded-2xl border border-[#fff7ea]/12 bg-[#0d0a09]/70 p-1 sm:w-auto sm:min-w-[440px] sm:grid-cols-5 sm:rounded-full"
                 >
                   {shareCardLayoutOptions.map((option) => {
                     const isSelected = option.id === selectedShareCardLayout;

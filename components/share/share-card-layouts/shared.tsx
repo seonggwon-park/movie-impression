@@ -1,6 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
 
-export type ShareCardLayout = "poster" | "quote" | "ticket-one" | "ticket-two";
+export type ShareCardLayout =
+  | "poster"
+  | "quote"
+  | "ticket-one"
+  | "ticket-two"
+  | "ticket-three";
 
 export const shareCardLayoutOptions: Array<{
   id: ShareCardLayout;
@@ -10,6 +15,7 @@ export const shareCardLayoutOptions: Array<{
   { id: "quote", label: "문장형" },
   { id: "ticket-one", label: "티켓 1" },
   { id: "ticket-two", label: "티켓 2" },
+  { id: "ticket-three", label: "티켓 3" },
 ];
 
 export type ShareCardEmotion = {
