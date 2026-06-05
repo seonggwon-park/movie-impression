@@ -1,6 +1,7 @@
 import {
   EmotionChips,
   PosterBackdrop,
+  PosterImageLayer,
   getPreviewText,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
@@ -95,10 +96,9 @@ export function TicketLayoutThree({
           overlay="linear-gradient(180deg,rgba(14,9,9,0.22),rgba(28,17,18,0.38)_38%,rgba(14,9,9,0.92))"
         >
           {posterUrl ? (
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 scale-105 bg-cover bg-center opacity-[0.58]"
-              style={{ backgroundImage: `url(${posterUrl})` }}
+            <PosterImageLayer
+              posterUrl={posterUrl}
+              className="scale-105 opacity-[0.58]"
             />
           ) : null}
           <div

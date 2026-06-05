@@ -98,6 +98,8 @@ const shareCardExportPixelRatio = 3;
 const minimumShareCardBlobSize = 12_000;
 const transparentImagePlaceholder =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+const posterImageExportErrorMessage =
+  "포스터 이미지를 포함해 저장하는 중 문제가 생겼어요.";
 
 const emotionToneByName: Record<string, EmotionTone> = {
   먹먹함: "warm",
@@ -313,6 +315,63 @@ function preloadImageUrl(url: string) {
     };
     image.src = url;
   });
+}
+
+function waitForImageElement(image: HTMLImageElement) {
+  if (!image.currentSrc && !image.src) {
+    return Promise.resolve(true);
+  }
+
+  if (image.complete) {
+    return Promise.resolve(image.naturalWidth > 0);
+  }
+
+  return new Promise<boolean>((resolve) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      resolve(image.complete && image.naturalWidth > 0);
+    }, 7000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      image.removeEventListener("load", handleLoad);
+      image.removeEventListener("error", handleError);
+    }
+
+    function handleLoad() {
+      cleanup();
+      resolve(image.naturalWidth > 0);
+    }
+
+    function handleError() {
+      cleanup();
+      resolve(false);
+    }
+
+    image.addEventListener("load", handleLoad, { once: true });
+    image.addEventListener("error", handleError, { once: true });
+  });
+}
+
+async function waitForShareCardImages(target: HTMLElement) {
+  const images = Array.from(target.querySelectorAll("img"));
+
+  if (images.length === 0) {
+    return;
+  }
+
+  const imageResults = await Promise.all(
+    images.map(async (image) => ({
+      src: image.currentSrc || image.src,
+      didLoad: await waitForImageElement(image),
+    })),
+  );
+  const failedImages = imageResults.filter((result) => !result.didLoad);
+
+  if (failedImages.length > 0) {
+    console.error("Share card poster image load failed", failedImages);
+    throw new Error(posterImageExportErrorMessage);
+  }
 }
 
 async function getFailedShareCardImageUrls(target: HTMLElement) {
@@ -738,6 +797,8 @@ export function MyArchive() {
         });
       }
 
+      await waitForShareCardImages(exportTarget);
+
       const failedImageUrls = await getFailedShareCardImageUrls(exportTarget);
       const restoreBackgroundImages =
         temporarilyDisableFailedBackgroundImages(
@@ -765,7 +826,12 @@ export function MyArchive() {
       );
     } catch (error) {
       console.error("Share card PNG export failed", error);
-      setShareExportErrorMessage("이미지를 저장하는 중 문제가 생겼어요.");
+      setShareExportErrorMessage(
+        error instanceof Error &&
+          error.message === posterImageExportErrorMessage
+          ? posterImageExportErrorMessage
+          : "이미지를 저장하는 중 문제가 생겼어요.",
+      );
     } finally {
       setIsExportingShareCard(false);
     }

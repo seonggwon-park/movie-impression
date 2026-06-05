@@ -1,9 +1,9 @@
 import {
   EmotionChips,
+  PosterImageLayer,
   PosterBackdrop,
   ShareCardFooter,
   ShareCardMeta,
-  getPosterBackgroundStyle,
   getPreviewText,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
@@ -23,14 +23,13 @@ export function QuoteLayout({
 
   return (
     <div className="relative h-full overflow-hidden bg-[#100d0d]">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-cover bg-center opacity-[0.42]"
-        style={getPosterBackgroundStyle(
-          posterUrl,
-          "linear-gradient(180deg,rgba(18,16,15,0.48),rgba(18,16,15,0.88))",
-        )}
-      />
+      <PosterImageLayer posterUrl={posterUrl} className="opacity-[0.42]" />
+      {posterUrl ? (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,16,15,0.48),rgba(18,16,15,0.88))]"
+        />
+      ) : null}
       <div
         aria-hidden="true"
         className="absolute inset-0 bg-[radial-gradient(circle_at_26%_18%,rgba(244,199,216,0.24),transparent_34%),linear-gradient(180deg,rgba(13,10,9,0.18),#100d0d_72%)]"

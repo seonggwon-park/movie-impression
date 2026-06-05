@@ -1,4 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+/* eslint-disable @next/next/no-img-element -- Share card PNG export needs browser-native img elements. */
+
+import type { ReactNode } from "react";
 
 export type ShareCardLayout =
   | "poster"
@@ -45,6 +47,12 @@ type EmotionChipsProps = {
 type PosterBackdropProps = {
   posterUrl: string | null;
   children?: ReactNode;
+  className?: string;
+  overlay?: string;
+};
+
+type PosterImageLayerProps = {
+  posterUrl: string | null;
   className?: string;
   overlay?: string;
 };
@@ -104,19 +112,6 @@ export function getEmotionChipClassName(
   ].join(" ");
 }
 
-export function getPosterBackgroundStyle(
-  posterUrl: string | null,
-  overlay: string,
-): CSSProperties | undefined {
-  if (!posterUrl) {
-    return undefined;
-  }
-
-  return {
-    backgroundImage: `${overlay},url(${posterUrl})`,
-  };
-}
-
 export function EmotionChips({
   emotions,
   className = "",
@@ -148,11 +143,42 @@ export function PosterBackdrop({
 }: PosterBackdropProps) {
   return (
     <div
-      className={`bg-[linear-gradient(145deg,rgba(240,161,95,0.22),rgba(244,199,216,0.12)_46%,rgba(18,16,15,0.82))] bg-cover bg-center ${className}`}
-      style={getPosterBackgroundStyle(posterUrl, overlay)}
+      className={`relative overflow-hidden bg-[linear-gradient(145deg,rgba(240,161,95,0.22),rgba(244,199,216,0.12)_46%,rgba(18,16,15,0.82))] ${className}`}
     >
+      <PosterImageLayer posterUrl={posterUrl} overlay={overlay} />
       {children}
     </div>
+  );
+}
+
+export function PosterImageLayer({
+  posterUrl,
+  className = "",
+  overlay,
+}: PosterImageLayerProps) {
+  if (!posterUrl) {
+    return null;
+  }
+
+  const crossOrigin = posterUrl.startsWith("/") ? "anonymous" : undefined;
+
+  return (
+    <>
+      <img
+        alt=""
+        aria-hidden="true"
+        crossOrigin={crossOrigin}
+        src={posterUrl}
+        className={`absolute inset-0 h-full w-full object-cover ${className}`}
+      />
+      {overlay ? (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0"
+          style={{ background: overlay }}
+        />
+      ) : null}
+    </>
   );
 }
 
