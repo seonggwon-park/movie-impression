@@ -44,7 +44,13 @@ export const ImpressionShareCard = forwardRef<
   ref,
 ) {
   const visibleEmotions = emotions.slice(0, 3);
+  const hiddenEmotionCount = Math.max(
+    0,
+    emotions.length - visibleEmotions.length,
+  );
   const displayQuote = getPreviewText(quote, 110);
+  const emotionChipClassName =
+    "inline-flex w-fit max-w-full shrink-0 items-center whitespace-nowrap rounded-full border border-[#ffd3a3]/28 bg-[#2a1d15] px-3 py-1.5 text-xs font-semibold leading-none text-[#fff7ea] [word-break:keep-all]";
 
   return (
     <div
@@ -63,9 +69,7 @@ export const ImpressionShareCard = forwardRef<
           }
         >
           <div className="absolute bottom-0 left-0 right-0 p-6">
-            <p className="text-xs font-semibold text-[#ffd3a3]">
-              여운
-            </p>
+            <p className="text-xs font-semibold text-[#ffd3a3]">여운</p>
             <h3 className="mt-3 text-3xl font-semibold leading-tight">
               {movieTitle}
             </h3>
@@ -78,15 +82,17 @@ export const ImpressionShareCard = forwardRef<
         <div className="flex flex-[0.95] flex-col justify-between p-6">
           <div>
             {visibleEmotions.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {visibleEmotions.map((emotion) => (
-                  <span
-                    key={emotion.id}
-                    className="rounded-full border border-[#f0a15f]/30 bg-[#f0a15f]/12 px-3 py-1 text-xs font-semibold text-[#ffd3a3]"
-                  >
+                  <span key={emotion.id} className={emotionChipClassName}>
                     {getEmotionLabel(emotion)}
                   </span>
                 ))}
+                {hiddenEmotionCount > 0 ? (
+                  <span className={emotionChipClassName}>
+                    +{hiddenEmotionCount}
+                  </span>
+                ) : null}
               </div>
             ) : null}
 

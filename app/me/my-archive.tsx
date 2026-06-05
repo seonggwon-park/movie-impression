@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { useRouter } from "next/navigation";
 import {
@@ -37,6 +37,7 @@ type SupabaseEmotionRow = {
 
 type SupabaseProfileRow = {
   display_name: string | null;
+  nickname: string | null;
 };
 
 type SupabaseImpressionRow = {
@@ -218,6 +219,26 @@ function getSafeDownloadFileName(movieTitle: string) {
   return `yeoun-${safeTitle || "movie"}.png`;
 }
 
+function getShareCardAuthorName(
+  nickname: string,
+  displayName: string,
+  emailPrefix: string,
+) {
+  const trimmedNickname = nickname.trim();
+  const trimmedDisplayName = displayName.trim();
+  const trimmedEmailPrefix = emailPrefix.trim();
+
+  if (trimmedNickname) {
+    return trimmedNickname;
+  }
+
+  if (trimmedDisplayName && trimmedDisplayName !== trimmedEmailPrefix) {
+    return trimmedDisplayName;
+  }
+
+  return "여운 사용자";
+}
+
 function downloadDataUrl(dataUrl: string, fileName: string) {
   const link = document.createElement("a");
   link.href = dataUrl;
@@ -238,6 +259,12 @@ export function MyArchive() {
     string | null
   >(null);
   const [profileDisplayName, setProfileDisplayName] = useState("");
+  const [profileNickname, setProfileNickname] = useState("");
+  const [nicknameInput, setNicknameInput] = useState("");
+  const [nicknameErrorMessage, setNicknameErrorMessage] = useState("");
+  const [nicknameSuccessMessage, setNicknameSuccessMessage] = useState("");
+  const [isSavingNickname, setIsSavingNickname] = useState(false);
+  const [userEmailPrefix, setUserEmailPrefix] = useState("");
   const [sharePreviewImpression, setSharePreviewImpression] =
     useState<ImpressionView | null>(null);
   const [isExportingShareCard, setIsExportingShareCard] = useState(false);
@@ -267,6 +294,8 @@ export function MyArchive() {
         router.replace(getLoginPath());
         return;
       }
+
+      setUserEmailPrefix(userData.user.email?.split("@")[0]?.trim() ?? "");
 
       const [impressionsResult, profileResult] = await Promise.all([
         supabase
@@ -302,7 +331,7 @@ export function MyArchive() {
           .order("created_at", { ascending: false }),
         supabase
           .from("profiles")
-          .select("display_name")
+          .select("display_name, nickname")
           .eq("id", userData.user.id)
           .maybeSingle(),
       ]);
@@ -335,10 +364,12 @@ export function MyArchive() {
           normalizeImpression,
         ),
       );
-      setProfileDisplayName(
-        ((profileResult.data as SupabaseProfileRow | null)?.display_name ?? "")
-          .trim(),
-      );
+      const profile = profileResult.data as SupabaseProfileRow | null;
+      const nickname = (profile?.nickname ?? "").trim();
+
+      setProfileDisplayName((profile?.display_name ?? "").trim());
+      setProfileNickname(nickname);
+      setNicknameInput(nickname);
       setIsLoading(false);
     }
 
@@ -370,7 +401,10 @@ export function MyArchive() {
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     if (userError) {
-      console.error("Supabase getUser failed before deleting impression", userError);
+      console.error(
+        "Supabase getUser failed before deleting impression",
+        userError,
+      );
     }
 
     if (!userData.user) {
@@ -399,6 +433,79 @@ export function MyArchive() {
       current?.id === impressionId ? null : current,
     );
     setDeletingImpressionId(null);
+  }
+
+  async function handleSaveNickname(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const trimmedNickname = nicknameInput.trim();
+
+    setNicknameErrorMessage("");
+    setNicknameSuccessMessage("");
+
+    if (trimmedNickname && trimmedNickname.length < 2) {
+      setNicknameErrorMessage("닉네임은 2자 이상 입력해주세요.");
+      return;
+    }
+
+    if (trimmedNickname.length > 20) {
+      setNicknameErrorMessage("닉네임은 20자 이하로 입력해주세요.");
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      setNicknameErrorMessage(missingSupabaseEnvMessage);
+      return;
+    }
+
+    setIsSavingNickname(true);
+
+    const supabase = getSupabaseBrowserClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Supabase getUser failed before nickname save", userError);
+    }
+
+    if (!userData.user) {
+      setIsSavingNickname(false);
+      router.replace(getLoginPath());
+      return;
+    }
+
+    const safeDisplayName = getShareCardAuthorName(
+      "",
+      profileDisplayName,
+      userEmailPrefix,
+    );
+
+    const { error } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: userData.user.id,
+          display_name: safeDisplayName,
+          nickname: trimmedNickname || null,
+        },
+        { onConflict: "id" },
+      );
+
+    if (error) {
+      console.error("Supabase nickname update failed", error);
+      setNicknameErrorMessage(`닉네임을 저장하지 못했어요. ${error.message}`);
+      setIsSavingNickname(false);
+      return;
+    }
+
+    setProfileDisplayName(safeDisplayName);
+    setProfileNickname(trimmedNickname);
+    setNicknameInput(trimmedNickname);
+    setNicknameSuccessMessage(
+      trimmedNickname
+        ? "닉네임이 저장됐어요."
+        : "닉네임을 비워두었어요.",
+    );
+    setIsSavingNickname(false);
   }
 
   function openSharePreview(impression: ImpressionView) {
@@ -457,7 +564,11 @@ export function MyArchive() {
     sharePreviewImpression?.personalSentence?.trim() ||
     sharePreviewImpression?.oneLine ||
     "";
-  const sharePreviewAuthorName = profileDisplayName || "여운 사용자";
+  const sharePreviewAuthorName = getShareCardAuthorName(
+    profileNickname,
+    profileDisplayName,
+    userEmailPrefix,
+  );
 
   const summaryItems = [
     {
@@ -535,8 +646,67 @@ export function MyArchive() {
 
         {!isLoading && !errorMessage ? (
           <>
+            <Card className="mt-12 p-5">
+              <form
+                className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
+                onSubmit={handleSaveNickname}
+              >
+                <div className="max-w-xl">
+                  <label
+                    htmlFor="profile-nickname"
+                    className="text-sm font-medium text-[#f2b482]"
+                  >
+                    닉네임
+                  </label>
+                  <p className="mt-2 text-sm leading-6 text-[#c9ad96]">
+                    공유 카드에 표시될 이름이에요. 비워두면 여운 사용자로
+                    보여드려요.
+                  </p>
+                  <p className="mt-2 text-sm text-[#e7d4c0]">
+                    현재 표시 이름:{" "}
+                    <span className="font-semibold text-[#fff7ea]">
+                      {sharePreviewAuthorName}
+                    </span>
+                  </p>
+                </div>
+
+                <div className="flex w-full flex-col gap-3 sm:max-w-md sm:flex-row">
+                  <input
+                    id="profile-nickname"
+                    value={nicknameInput}
+                    onChange={(event) => {
+                      setNicknameInput(event.target.value);
+                      setNicknameErrorMessage("");
+                      setNicknameSuccessMessage("");
+                    }}
+                    placeholder="공유 카드에 표시될 이름"
+                    className="min-h-11 flex-1 rounded-full border border-[#fff7ea]/12 bg-[#12100f] px-4 py-2 text-sm text-[#fff7ea] outline-none transition placeholder:text-[#c9ad96]/70 focus:border-[#ffd3a3] focus:ring-2 focus:ring-[#ffd3a3]/30"
+                  />
+                  <Button
+                    type="submit"
+                    disabled={isSavingNickname}
+                    className="min-h-11 px-5 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSavingNickname ? "저장 중" : "닉네임 저장"}
+                  </Button>
+                </div>
+              </form>
+
+              {nicknameErrorMessage ? (
+                <p className="mt-4 rounded-lg border border-[#f4c7d8]/24 bg-[#f4c7d8]/10 px-4 py-3 text-sm leading-6 text-[#f4c7d8]">
+                  {nicknameErrorMessage}
+                </p>
+              ) : null}
+
+              {nicknameSuccessMessage ? (
+                <p className="mt-4 rounded-lg border border-[#f0a15f]/24 bg-[#f0a15f]/10 px-4 py-3 text-sm leading-6 text-[#ffd3a3]">
+                  {nicknameSuccessMessage}
+                </p>
+              ) : null}
+            </Card>
+
             <section
-              className="mt-12 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+              className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
               aria-label="나의 감상 요약"
             >
               {summaryItems.map((item) => (
