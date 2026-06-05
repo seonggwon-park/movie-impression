@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toPng } from "html-to-image";
 import { useRouter } from "next/navigation";
 import {
   Button,
@@ -205,8 +206,28 @@ function getEmotionLabel(emotion: EmotionView) {
   return emotion.emoji ? `${emotion.emoji} ${emotion.name}` : emotion.name;
 }
 
+function getSafeDownloadFileName(movieTitle: string) {
+  const safeTitle = movieTitle
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f\\/:*?"<>|]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim()
+    .slice(0, 80);
+
+  return `yeoun-${safeTitle || "movie"}.png`;
+}
+
+function downloadDataUrl(dataUrl: string, fileName: string) {
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = fileName;
+  link.click();
+}
+
 export function MyArchive() {
   const router = useRouter();
+  const shareCardRef = useRef<HTMLDivElement | null>(null);
   const isSupabaseConfigured = hasSupabaseConfig();
   const [impressions, setImpressions] = useState<ImpressionView[]>([]);
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
@@ -219,6 +240,8 @@ export function MyArchive() {
   const [profileDisplayName, setProfileDisplayName] = useState("");
   const [sharePreviewImpression, setSharePreviewImpression] =
     useState<ImpressionView | null>(null);
+  const [isExportingShareCard, setIsExportingShareCard] = useState(false);
+  const [shareExportErrorMessage, setShareExportErrorMessage] = useState("");
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -376,6 +399,45 @@ export function MyArchive() {
       current?.id === impressionId ? null : current,
     );
     setDeletingImpressionId(null);
+  }
+
+  function openSharePreview(impression: ImpressionView) {
+    setShareExportErrorMessage("");
+    setSharePreviewImpression(impression);
+  }
+
+  function closeSharePreview() {
+    setShareExportErrorMessage("");
+    setSharePreviewImpression(null);
+  }
+
+  async function handleExportShareCard() {
+    if (!sharePreviewImpression || !shareCardRef.current || isExportingShareCard) {
+      return;
+    }
+
+    setIsExportingShareCard(true);
+    setShareExportErrorMessage("");
+
+    try {
+      const dataUrl = await toPng(shareCardRef.current, {
+        cacheBust: true,
+        pixelRatio: 2.5,
+        backgroundColor: "#12100f",
+      });
+
+      downloadDataUrl(
+        dataUrl,
+        getSafeDownloadFileName(sharePreviewImpression.movie.title),
+      );
+    } catch (error) {
+      console.error("Share card PNG export failed", error);
+      setShareExportErrorMessage(
+        "포스터 이미지를 포함해 저장하는 중 문제가 생겼어요. 잠시 후 다시 시도해주세요.",
+      );
+    } finally {
+      setIsExportingShareCard(false);
+    }
   }
 
   const hasImpressions = impressions.length > 0;
@@ -654,9 +716,7 @@ export function MyArchive() {
                                   <Button
                                     type="button"
                                     variant="secondary"
-                                    onClick={() =>
-                                      setSharePreviewImpression(impression)
-                                    }
+                                    onClick={() => openSharePreview(impression)}
                                     className="min-h-10 px-4 py-2 text-sm"
                                   >
                                     공유 카드
@@ -775,6 +835,7 @@ export function MyArchive() {
             <Card className="w-full border-[#fff7ea]/14 bg-[#171311] p-4 shadow-[0_34px_120px_rgba(0,0,0,0.58)] sm:p-6">
               <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] lg:items-center">
                 <ImpressionShareCard
+                  ref={shareCardRef}
                   movieTitle={sharePreviewImpression.movie.title}
                   releaseYear={sharePreviewReleaseYear}
                   posterUrl={sharePreviewImpression.movie.posterUrl}
@@ -798,17 +859,34 @@ export function MyArchive() {
                     담았어요.
                   </h2>
                   <p className="mt-4 text-sm leading-6 text-[#c9ad96]">
-                    이 카드는 이미지로 저장해 공유할 수 있게 준비 중이에요.
+                    저장한 이미지는 인스타 스토리나 게시글에 공유해보세요.
                   </p>
                   <p className="mt-3 text-sm leading-6 text-[#e7d4c0]">
-                    지금은 문장과 감정이 어떻게 보이는지 먼저 확인해볼 수
-                    있어요.
+                    카드만 PNG로 저장돼요. 화면 전체나 버튼은 이미지에
+                    포함되지 않아요.
                   </p>
+
+                  {shareExportErrorMessage ? (
+                    <p className="mt-4 rounded-lg border border-[#f4c7d8]/24 bg-[#f4c7d8]/10 px-4 py-3 text-sm leading-6 text-[#f4c7d8]">
+                      {shareExportErrorMessage}
+                    </p>
+                  ) : null}
 
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                     <Button
                       type="button"
-                      onClick={() => setSharePreviewImpression(null)}
+                      disabled={isExportingShareCard}
+                      onClick={() => void handleExportShareCard()}
+                      className="disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isExportingShareCard
+                        ? "이미지를 만드는 중이에요..."
+                        : "이미지로 저장"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={closeSharePreview}
                     >
                       닫기
                     </Button>

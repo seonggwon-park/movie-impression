@@ -1,3 +1,5 @@
+import { forwardRef } from "react";
+
 type ShareCardEmotion = {
   id: string;
   name: string;
@@ -24,22 +26,31 @@ function getPreviewText(value: string, maxLength: number) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
-export function ImpressionShareCard({
-  movieTitle,
-  releaseYear,
-  posterUrl,
-  emotions,
-  quote,
-  rating,
-  watchedDate,
-  watchMethodLabel,
-  authorName,
-}: ImpressionShareCardProps) {
+export const ImpressionShareCard = forwardRef<
+  HTMLDivElement,
+  ImpressionShareCardProps
+>(function ImpressionShareCard(
+  {
+    movieTitle,
+    releaseYear,
+    posterUrl,
+    emotions,
+    quote,
+    rating,
+    watchedDate,
+    watchMethodLabel,
+    authorName,
+  },
+  ref,
+) {
   const visibleEmotions = emotions.slice(0, 3);
   const displayQuote = getPreviewText(quote, 110);
 
   return (
-    <div className="mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-lg border border-[#fff7ea]/14 bg-[#12100f] text-[#fff7ea] shadow-[0_34px_110px_rgba(0,0,0,0.5)]">
+    <div
+      ref={ref}
+      className="mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-lg border border-[#fff7ea]/14 bg-[#12100f] text-[#fff7ea] shadow-[0_34px_110px_rgba(0,0,0,0.5)]"
+    >
       <div className="flex h-full flex-col bg-[radial-gradient(circle_at_top_left,rgba(240,161,95,0.24),transparent_36%),linear-gradient(180deg,rgba(18,16,15,0.2),#12100f_58%)]">
         <div
           className="relative min-h-0 flex-[1.05] bg-[linear-gradient(145deg,rgba(240,161,95,0.22),rgba(244,199,216,0.12)_46%,rgba(18,16,15,0.82))] bg-cover bg-center"
@@ -107,4 +118,4 @@ export function ImpressionShareCard({
       </div>
     </div>
   );
-}
+});
