@@ -10,6 +10,7 @@ import {
   PageContainer,
   SectionHeader,
 } from "@/components/ui";
+import { ImpressionShareCard } from "@/components/share/impression-share-card";
 import type { EmotionTone } from "@/lib/emotions";
 import {
   getSupabaseBrowserClient,
@@ -31,6 +32,10 @@ type SupabaseEmotionRow = {
   id: string;
   name: string;
   emoji: string | null;
+};
+
+type SupabaseProfileRow = {
+  display_name: string | null;
 };
 
 type SupabaseImpressionRow = {
@@ -211,6 +216,9 @@ export function MyArchive() {
   const [deletingImpressionId, setDeletingImpressionId] = useState<
     string | null
   >(null);
+  const [profileDisplayName, setProfileDisplayName] = useState("");
+  const [sharePreviewImpression, setSharePreviewImpression] =
+    useState<ImpressionView | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -237,51 +245,76 @@ export function MyArchive() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("impressions")
-        .select(
-          `
-          id,
-          one_line,
-          memorable_scene,
-          personal_sentence,
-          note,
-          rating,
-          watched_at,
-          watch_method,
-          created_at,
-          movies (
+      const [impressionsResult, profileResult] = await Promise.all([
+        supabase
+          .from("impressions")
+          .select(
+            `
             id,
-            title,
-            slug,
-            poster_url,
-            release_date
-          ),
-          impression_emotions (
-            emotions (
+            one_line,
+            memorable_scene,
+            personal_sentence,
+            note,
+            rating,
+            watched_at,
+            watch_method,
+            created_at,
+            movies (
               id,
-              name,
-              emoji
+              title,
+              slug,
+              poster_url,
+              release_date
+            ),
+            impression_emotions (
+              emotions (
+                id,
+                name,
+                emoji
+              )
             )
+          `,
           )
-        `,
-        )
-        .eq("user_id", userData.user.id)
-        .order("created_at", { ascending: false });
+          .eq("user_id", userData.user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", userData.user.id)
+          .maybeSingle(),
+      ]);
 
       if (!isMounted) {
         return;
       }
 
-      if (error) {
-        console.error("Supabase my impressions load failed", error);
-        setErrorMessage(`나의 감상을 불러오지 못했어요. ${error.message}`);
+      if (impressionsResult.error) {
+        console.error(
+          "Supabase my impressions load failed",
+          impressionsResult.error,
+        );
+        setErrorMessage(
+          `나의 감상을 불러오지 못했어요. ${impressionsResult.error.message}`,
+        );
         setIsLoading(false);
         return;
       }
 
+      if (profileResult.error) {
+        console.error(
+          "Supabase profile display name load failed",
+          profileResult.error,
+        );
+      }
+
       setImpressions(
-        ((data ?? []) as SupabaseImpressionRow[]).map(normalizeImpression),
+        ((impressionsResult.data ?? []) as SupabaseImpressionRow[]).map(
+          normalizeImpression,
+        ),
+      );
+      setProfileDisplayName(
+        ((profileResult.data as SupabaseProfileRow | null)?.display_name ?? "")
+          .trim(),
       );
       setIsLoading(false);
     }
@@ -339,6 +372,9 @@ export function MyArchive() {
     setImpressions((current) =>
       current.filter((impression) => impression.id !== impressionId),
     );
+    setSharePreviewImpression((current) =>
+      current?.id === impressionId ? null : current,
+    );
     setDeletingImpressionId(null);
   }
 
@@ -346,6 +382,20 @@ export function MyArchive() {
   const mostUsedEmotion = getMostUsedEmotion(impressions);
   const recentImpression = impressions[0];
   const recentEmotions = getRecentEmotions(impressions);
+  const sharePreviewReleaseYear = getReleaseYear(
+    sharePreviewImpression?.movie.releaseDate ?? null,
+  );
+  const sharePreviewWatchedDate = sharePreviewImpression
+    ? formatDate(sharePreviewImpression.watchedAt)
+    : null;
+  const sharePreviewWatchMethodLabel = sharePreviewImpression
+    ? getWatchMethodLabel(sharePreviewImpression.watchMethod)
+    : null;
+  const sharePreviewQuote =
+    sharePreviewImpression?.personalSentence?.trim() ||
+    sharePreviewImpression?.oneLine ||
+    "";
+  const sharePreviewAuthorName = profileDisplayName || "여운 사용자";
 
   const summaryItems = [
     {
@@ -601,6 +651,16 @@ export function MyArchive() {
                                   ) : null}
                                 </div>
                                 <div className="flex flex-wrap gap-3">
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() =>
+                                      setSharePreviewImpression(impression)
+                                    }
+                                    className="min-h-10 px-4 py-2 text-sm"
+                                  >
+                                    공유 카드
+                                  </Button>
                                   <ButtonLink
                                     href={`/impressions/${impression.id}/edit`}
                                     variant="secondary"
@@ -703,6 +763,68 @@ export function MyArchive() {
           </>
         ) : null}
       </PageContainer>
+
+      {sharePreviewImpression ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="share-card-preview-title"
+          className="fixed inset-0 z-50 overflow-y-auto bg-[#050403]/82 px-4 py-6 backdrop-blur-sm sm:px-6"
+        >
+          <div className="mx-auto flex min-h-full max-w-5xl items-center justify-center">
+            <Card className="w-full border-[#fff7ea]/14 bg-[#171311] p-4 shadow-[0_34px_120px_rgba(0,0,0,0.58)] sm:p-6">
+              <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(260px,380px)_minmax(0,1fr)] lg:items-center">
+                <ImpressionShareCard
+                  movieTitle={sharePreviewImpression.movie.title}
+                  releaseYear={sharePreviewReleaseYear}
+                  posterUrl={sharePreviewImpression.movie.posterUrl}
+                  emotions={sharePreviewImpression.emotions}
+                  quote={sharePreviewQuote}
+                  rating={sharePreviewImpression.rating}
+                  watchedDate={sharePreviewWatchedDate}
+                  watchMethodLabel={sharePreviewWatchMethodLabel}
+                  authorName={sharePreviewAuthorName}
+                />
+
+                <div className="lg:pl-2">
+                  <p className="text-sm font-medium text-[#f2b482]">
+                    공유 카드 미리보기
+                  </p>
+                  <h2
+                    id="share-card-preview-title"
+                    className="mt-3 text-2xl font-semibold leading-tight text-[#fff7ea]"
+                  >
+                    {sharePreviewImpression.movie.title}의 여운을 카드로
+                    담았어요.
+                  </h2>
+                  <p className="mt-4 text-sm leading-6 text-[#c9ad96]">
+                    이 카드는 이미지로 저장해 공유할 수 있게 준비 중이에요.
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-[#e7d4c0]">
+                    지금은 문장과 감정이 어떻게 보이는지 먼저 확인해볼 수
+                    있어요.
+                  </p>
+
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                    <Button
+                      type="button"
+                      onClick={() => setSharePreviewImpression(null)}
+                    >
+                      닫기
+                    </Button>
+                    <ButtonLink
+                      href={`/impressions/${sharePreviewImpression.id}/edit`}
+                      variant="secondary"
+                    >
+                      감상 다듬기
+                    </ButtonLink>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
