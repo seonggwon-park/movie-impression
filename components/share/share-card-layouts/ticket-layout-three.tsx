@@ -91,14 +91,21 @@ export function TicketLayoutThree({
 
         <PosterBackdrop
           posterUrl={posterUrl}
-          className="relative min-h-0 flex-[1.08]"
-          overlay="linear-gradient(180deg,rgba(14,9,9,0.12),rgba(28,17,18,0.18)_34%,rgba(14,9,9,0.86))"
+          className="relative min-h-0 flex-[1.08] overflow-hidden"
+          overlay="linear-gradient(180deg,rgba(14,9,9,0.22),rgba(28,17,18,0.38)_38%,rgba(14,9,9,0.92))"
         >
+          {posterUrl ? (
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 scale-105 bg-cover bg-center opacity-[0.58]"
+              style={{ backgroundImage: `url(${posterUrl})` }}
+            />
+          ) : null}
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-[radial-gradient(circle_at_32%_22%,rgba(255,211,163,0.16),transparent_34%),linear-gradient(180deg,rgba(9,6,5,0.1),rgba(9,6,5,0.76))]"
+            className="absolute inset-0 bg-[radial-gradient(circle_at_32%_22%,rgba(255,211,163,0.18),transparent_34%),linear-gradient(180deg,rgba(9,6,5,0.28),rgba(24,14,14,0.44)_38%,rgba(9,6,5,0.9))]"
           />
-          <div className="absolute left-5 right-5 top-5 flex items-center justify-between gap-3">
+          <div className="absolute left-5 right-5 top-5 z-10 flex items-center justify-between gap-3">
             <p className="whitespace-nowrap text-[9px] font-semibold tracking-[0.24em] text-[#ffd3a3]">
               A MEMORY TICKET
             </p>
@@ -107,7 +114,7 @@ export function TicketLayoutThree({
             </p>
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 p-5">
+          <div className="absolute bottom-0 left-0 right-0 z-10 p-5">
             <p className="text-[9px] font-semibold tracking-[0.22em] text-[#f2b482]/82">
               남은 장면
             </p>
