@@ -33,11 +33,15 @@ export const ImpressionShareCard = forwardRef<
 >(function ImpressionShareCard({ layout = "poster", ...props }, ref) {
   const LayoutComponent = layoutComponents[layout];
   const posterUrl = getProxiedImageUrl(props.posterUrl);
+  const wrapperFrameClassName =
+    layout === "ticket-two"
+      ? "rounded-lg border border-transparent"
+      : "rounded-lg border border-[#fff7ea]/14";
 
   return (
     <div
       ref={ref}
-      className="relative mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-lg border border-[#fff7ea]/14 bg-[#0d0a09] text-[#fff7ea] shadow-[0_34px_110px_rgba(0,0,0,0.5)]"
+      className={`relative mx-auto aspect-[9/16] w-full max-w-[360px] overflow-hidden bg-[#0d0a09] text-[#fff7ea] shadow-[0_34px_110px_rgba(0,0,0,0.5)] ${wrapperFrameClassName}`}
     >
       <LayoutComponent {...props} posterUrl={posterUrl} />
     </div>
