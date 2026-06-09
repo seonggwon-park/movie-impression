@@ -145,9 +145,9 @@ export function TicketLayoutTwo({
           </div>
         </PosterBackdrop>
 
-        <div className="relative z-10 flex min-h-0 flex-1 flex-col px-3 pb-2 pt-2">
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <div className="max-h-[var(--ticket-two-mood-max-height)] shrink-0">
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden px-3 pb-2 pt-2">
+          <div className="shrink-0">
+            <div className="max-h-[var(--ticket-two-mood-max-height)] overflow-hidden">
               <div className="flex items-center gap-3">
                 <p className="whitespace-nowrap text-[9px] font-semibold tracking-[0.22em] text-[#f2b482]/78">
                   마음에 남은 감정
@@ -175,9 +175,9 @@ export function TicketLayoutTwo({
             </div>
           </div>
 
-          <div className="mt-auto shrink-0">
+          <div className="mt-2 shrink-0">
             {hasMetadata ? (
-              <div className="mt-2 grid max-h-[var(--ticket-two-meta-max-height)] grid-cols-3 gap-1.5 overflow-hidden rounded-lg border border-[#f2b482]/12 bg-[#0d0909]/38 px-2.5 py-2">
+              <div className="grid max-h-[var(--ticket-two-meta-max-height)] grid-cols-3 gap-1.5 overflow-hidden rounded-lg border border-[#f2b482]/12 bg-[#0d0909]/38 px-2.5 py-2">
                 <MemoryMeta label="관람일" value={watchedDate} />
                 <MemoryMeta label="방식" value={watchMethodLabel} />
                 <MemoryMeta
