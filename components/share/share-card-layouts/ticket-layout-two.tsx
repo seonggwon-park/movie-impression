@@ -36,7 +36,7 @@ function MemoryTicketNotches() {
 
 function SoftDivider() {
   return (
-    <div className="relative my-4 h-3 shrink-0">
+    <div className="relative my-3 h-2 shrink-0">
       <div
         aria-hidden="true"
         className="absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t border-dashed border-[#f2b482]/24"
@@ -92,7 +92,7 @@ export function TicketLayoutTwo({
 
         <PosterBackdrop
           posterUrl={posterUrl}
-          className="relative min-h-0 flex-[1.08] overflow-hidden"
+          className="relative min-h-0 flex-[0.88] overflow-hidden"
           overlay="linear-gradient(180deg,rgba(8,6,5,0.44),rgba(18,12,11,0.5)_36%,rgba(9,6,5,0.94))"
         >
           <div
@@ -117,22 +117,22 @@ export function TicketLayoutTwo({
             </p>
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 z-10 p-5">
+          <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
             <p className="text-[9px] font-semibold tracking-[0.22em] text-[#f2b482]/82">
               남은 장면
             </p>
-            <h3 className="mt-2 text-[30px] font-semibold leading-tight text-[#fff7ea]">
+            <h3 className="mt-1.5 text-[28px] font-semibold leading-tight text-[#fff7ea]">
               {movieTitle}
             </h3>
             {releaseYear ? (
-              <p className="mt-2 text-sm font-medium text-[#e7d4c0]">
+              <p className="mt-1.5 text-xs font-medium text-[#e7d4c0]">
                 {releaseYear}
               </p>
             ) : null}
           </div>
         </PosterBackdrop>
 
-        <div className="relative z-10 flex min-h-0 flex-[0.92] flex-col justify-between px-5 pb-5 pt-4">
+        <div className="relative z-10 flex min-h-0 flex-[1.12] flex-col justify-between px-4 pb-3 pt-3">
           <div>
             <div className="flex items-center gap-3">
               <p className="whitespace-nowrap text-[9px] font-semibold tracking-[0.22em] text-[#f2b482]/78">
@@ -143,12 +143,12 @@ export function TicketLayoutTwo({
             <EmotionChips
               emotions={emotions}
               density="compact"
-              className="mt-3"
+              className="mt-2"
             />
 
             <SoftDivider />
 
-            <div className="rounded-xl border border-[#fff7ea]/8 bg-[#fff7ea]/5 px-4 py-4 shadow-[inset_0_0_22px_rgba(242,180,130,0.035)]">
+            <div className="rounded-xl border border-[#fff7ea]/8 bg-[#fff7ea]/5 px-3.5 py-3 shadow-[inset_0_0_22px_rgba(242,180,130,0.035)]">
               <p className="text-[9px] font-semibold tracking-[0.2em] text-[#f2b482]/76">
                 MEMORY NOTE
               </p>
@@ -162,7 +162,7 @@ export function TicketLayoutTwo({
 
           <div>
             {hasMetadata ? (
-              <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl border border-[#f2b482]/12 bg-[#0d0909]/38 px-4 py-3">
+              <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-[#f2b482]/12 bg-[#0d0909]/38 px-3 py-2.5">
                 <MemoryMeta label="관람일" value={watchedDate} />
                 <MemoryMeta label="방식" value={watchMethodLabel} />
                 <MemoryMeta
@@ -172,7 +172,7 @@ export function TicketLayoutTwo({
               </div>
             ) : null}
 
-            <div className="mt-4 flex items-end justify-between gap-3 border-t border-[#f2b482]/14 pt-4">
+            <div className="mt-3 flex items-end justify-between gap-3 border-t border-[#f2b482]/14 pt-3">
               <div className="min-w-0">
                 <p className="text-[10px] text-[#c9ad96]">기록한 사람</p>
                 <p className="mt-1 truncate text-sm font-semibold text-[#fff7ea]">
