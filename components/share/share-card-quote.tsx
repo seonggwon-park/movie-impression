@@ -16,7 +16,7 @@ const quoteMaxLengthByVariant = {
   poster: 132,
   quote: 156,
   "ticket-one": 118,
-  "ticket-two": 138,
+  "ticket-two": 112,
 } satisfies Record<ShareCardQuoteVariant, number>;
 
 const quoteClassNames = {
@@ -42,11 +42,11 @@ const quoteClassNames = {
     compact: "text-[14px] leading-[1.52]",
   },
   "ticket-two": {
-    short: "text-[23px] leading-snug",
-    mediumLarge: "text-[21px] leading-snug",
-    medium: "text-[19px] leading-[1.42]",
-    small: "text-[17px] leading-[1.48]",
-    compact: "text-[15px] leading-[1.54]",
+    short: "text-[21px] leading-snug",
+    mediumLarge: "text-[19px] leading-snug",
+    medium: "text-[17px] leading-[1.42]",
+    small: "text-[15px] leading-[1.48]",
+    compact: "text-[13px] leading-[1.52]",
   },
 } satisfies Record<ShareCardQuoteVariant, Record<ShareCardQuoteSize, string>>;
 
