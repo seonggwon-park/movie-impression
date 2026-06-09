@@ -1,9 +1,19 @@
+import type { CSSProperties } from "react";
 import {
   EmotionChips,
   PosterBackdrop,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
 import { ShareCardQuote } from "@/components/share/share-card-quote";
+
+const ticketTwoBudgetStyle = {
+  "--ticket-two-frame-padding": "13px",
+  "--ticket-two-hero-height": "220px",
+  "--ticket-two-mood-max-height": "83px",
+  "--ticket-two-note-max-height": "140px",
+  "--ticket-two-meta-max-height": "57px",
+  "--ticket-two-footer-min-height": "57px",
+} as CSSProperties;
 
 const softCinemaGrainStyle = {
   backgroundImage:
@@ -86,13 +96,16 @@ export function TicketLayoutTwo({
   const hasMetadata = Boolean(watchedDate || watchMethodLabel || rating);
 
   return (
-    <div className="relative h-full bg-[radial-gradient(circle_at_22%_14%,rgba(118,52,60,0.42),transparent_34%),linear-gradient(155deg,#090605,#1c1112_48%,#0c0908)] px-2.5 pt-2.5 text-[#fff7ea]">
+    <div
+      className="relative h-full bg-[radial-gradient(circle_at_22%_14%,rgba(118,52,60,0.42),transparent_34%),linear-gradient(155deg,#090605,#1c1112_48%,#0c0908)] p-[var(--ticket-two-frame-padding)] text-[#fff7ea]"
+      style={ticketTwoBudgetStyle}
+    >
       <div className="relative flex h-full flex-col overflow-hidden rounded-t-[22px] border-x border-t border-[#f2b482]/22 bg-[#150e0d] shadow-[inset_0_1px_0_rgba(255,247,234,0.055)]">
         <MemoryTicketNotches />
 
         <PosterBackdrop
           posterUrl={posterUrl}
-          className="relative h-[36%] min-h-0 shrink-0 overflow-hidden"
+          className="relative h-[var(--ticket-two-hero-height)] max-h-[230px] min-h-0 shrink-0 overflow-hidden"
           overlay="linear-gradient(180deg,rgba(8,6,5,0.44),rgba(18,12,11,0.5)_36%,rgba(9,6,5,0.94))"
         >
           <div
@@ -132,23 +145,25 @@ export function TicketLayoutTwo({
           </div>
         </PosterBackdrop>
 
-        <div className="relative z-10 flex min-h-0 flex-1 flex-col px-3.5 pb-2.5 pt-2.5">
-          <div className="min-h-0">
-            <div className="flex items-center gap-3">
-              <p className="whitespace-nowrap text-[9px] font-semibold tracking-[0.22em] text-[#f2b482]/78">
-                마음에 남은 감정
-              </p>
-              <span className="h-px flex-1 bg-[#fff7ea]/10" />
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col px-3 pb-2 pt-2">
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <div className="max-h-[var(--ticket-two-mood-max-height)] shrink-0">
+              <div className="flex items-center gap-3">
+                <p className="whitespace-nowrap text-[9px] font-semibold tracking-[0.22em] text-[#f2b482]/78">
+                  마음에 남은 감정
+                </p>
+                <span className="h-px flex-1 bg-[#fff7ea]/10" />
+              </div>
+              <EmotionChips
+                emotions={emotions}
+                density="micro"
+                className="mt-1 [gap:0.2rem]"
+              />
             </div>
-            <EmotionChips
-              emotions={emotions}
-              density="compact"
-              className="mt-1.5 [gap:0.25rem]"
-            />
 
             <SoftDivider />
 
-            <div className="rounded-xl border border-[#fff7ea]/8 bg-[#fff7ea]/5 px-3 py-2.5 shadow-[inset_0_0_22px_rgba(242,180,130,0.035)]">
+            <div className="max-h-[var(--ticket-two-note-max-height)] overflow-hidden rounded-xl border border-[#fff7ea]/8 bg-[#fff7ea]/5 px-3 py-2.5 shadow-[inset_0_0_22px_rgba(242,180,130,0.035)]">
               <p className="text-[9px] font-semibold tracking-[0.2em] text-[#f2b482]/76">
                 MEMORY NOTE
               </p>
@@ -162,7 +177,7 @@ export function TicketLayoutTwo({
 
           <div className="mt-auto shrink-0">
             {hasMetadata ? (
-              <div className="mt-2.5 grid grid-cols-3 gap-1.5 rounded-lg border border-[#f2b482]/12 bg-[#0d0909]/38 px-2.5 py-2">
+              <div className="mt-2 grid max-h-[var(--ticket-two-meta-max-height)] grid-cols-3 gap-1.5 overflow-hidden rounded-lg border border-[#f2b482]/12 bg-[#0d0909]/38 px-2.5 py-2">
                 <MemoryMeta label="관람일" value={watchedDate} />
                 <MemoryMeta label="방식" value={watchMethodLabel} />
                 <MemoryMeta
@@ -172,7 +187,7 @@ export function TicketLayoutTwo({
               </div>
             ) : null}
 
-            <div className="mt-2.5 flex items-end justify-between gap-2 border-t border-[#f2b482]/14 pt-2.5">
+            <div className="mt-2 flex min-h-[var(--ticket-two-footer-min-height)] items-end justify-between gap-2 border-t border-[#f2b482]/14 pt-2">
               <div className="min-w-0">
                 <p className="text-[10px] text-[#c9ad96]">기록한 사람</p>
                 <p className="mt-1 truncate text-sm font-semibold text-[#fff7ea]">

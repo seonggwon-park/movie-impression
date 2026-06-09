@@ -39,7 +39,7 @@ export type ShareCardLayoutProps = {
 type EmotionChipsProps = {
   emotions: ShareCardEmotion[];
   className?: string;
-  density?: "default" | "compact";
+  density?: "default" | "compact" | "micro";
 };
 
 type PosterBackdropProps = {
@@ -73,6 +73,7 @@ const emotionChipBaseClassName =
 const emotionChipDensityClassNames = {
   default: "px-2.5 py-1.5 text-[11px]",
   compact: "px-2 py-1 text-[10px]",
+  micro: "px-1.5 py-0.5 text-[9px]",
 };
 
 const emotionChipClassNames: Record<string, string> = {
