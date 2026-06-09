@@ -86,8 +86,8 @@ export function TicketLayoutTwo({
   const hasMetadata = Boolean(watchedDate || watchMethodLabel || rating);
 
   return (
-    <div className="relative h-full bg-[radial-gradient(circle_at_22%_14%,rgba(118,52,60,0.42),transparent_34%),linear-gradient(155deg,#090605,#1c1112_48%,#0c0908)] p-3 text-[#fff7ea]">
-      <div className="relative flex h-full flex-col overflow-hidden rounded-[24px] border border-[#f2b482]/22 bg-[#150e0d] shadow-[inset_0_0_0_1px_rgba(255,247,234,0.055)]">
+    <div className="relative h-full bg-[radial-gradient(circle_at_22%_14%,rgba(118,52,60,0.42),transparent_34%),linear-gradient(155deg,#090605,#1c1112_48%,#0c0908)] px-3 pt-3 text-[#fff7ea]">
+      <div className="relative flex h-full flex-col overflow-hidden rounded-t-[24px] border-x border-t border-[#f2b482]/22 bg-[#150e0d] shadow-[inset_0_1px_0_rgba(255,247,234,0.055)]">
         <MemoryTicketNotches />
 
         <PosterBackdrop
