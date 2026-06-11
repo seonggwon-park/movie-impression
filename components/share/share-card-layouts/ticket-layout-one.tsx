@@ -3,7 +3,9 @@ import {
   PosterBackdrop,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
+import { ShareCardStarRating } from "@/components/share/share-card-rating";
 import { ShareCardQuote } from "@/components/share/share-card-quote";
+import type { ReactNode } from "react";
 
 function TicketNotch({ side }: { side: "left" | "right" }) {
   return (
@@ -38,7 +40,7 @@ function TicketInfoItem({
   value,
 }: {
   label: string;
-  value: string | null;
+  value: ReactNode;
 }) {
   if (!value) {
     return null;
@@ -49,9 +51,9 @@ function TicketInfoItem({
       <p className="text-[9px] font-semibold tracking-[0.18em] text-[#f2b482]/78">
         {label}
       </p>
-      <p className="mt-1 truncate text-[11px] font-semibold text-[#fff7ea]">
+      <div className="mt-1 truncate text-[11px] font-semibold text-[#fff7ea]">
         {value}
-      </p>
+      </div>
     </div>
   );
 }
@@ -136,7 +138,14 @@ export function TicketLayoutOne({
               <TicketInfoItem label="YEAR" value={releaseYear} />
               <TicketInfoItem
                 label="RATING"
-                value={rating ? `별점 ${rating}` : null}
+                value={
+                  rating ? (
+                    <ShareCardStarRating
+                      rating={rating}
+                      starClassName="text-[12px]"
+                    />
+                  ) : null
+                }
               />
               <TicketInfoItem label="ISSUED" value={watchedDate} />
               <TicketInfoItem label="PLACE" value={watchMethodLabel} />

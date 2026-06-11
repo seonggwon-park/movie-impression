@@ -3,6 +3,7 @@ import {
   PosterBackdrop,
   type ShareCardLayoutProps,
 } from "@/components/share/share-card-layouts/shared";
+import { ShareCardStarRating } from "@/components/share/share-card-rating";
 import { ShareCardQuote } from "@/components/share/share-card-quote";
 
 function TicketEdgeNotches() {
@@ -64,36 +65,16 @@ function TicketRatingMetaItem({ rating }: { rating: number | null }) {
     return null;
   }
 
-  const filledStars = Math.max(0, Math.min(5, Math.round(rating)));
-
   return (
     <div className="min-w-0 rounded-md border border-[#fff7ea]/8 bg-[#0b0706]/32 px-2.5 py-2">
       <p className="text-[8px] font-semibold tracking-[0.2em] text-[#d9a15f]/78">
         RATING
       </p>
-      <div
-        aria-label={`Rating ${filledStars} of 5`}
-        className="mt-1 flex items-center gap-0.5 leading-none"
-        role="img"
-      >
-        {Array.from({ length: 5 }, (_, index) => {
-          const isFilled = index < filledStars;
-
-          return (
-            <span
-              aria-hidden="true"
-              className={
-                isFilled
-                  ? "text-[12px] text-[#ffd36e] drop-shadow-[0_0_5px_rgba(255,184,91,0.34)]"
-                  : "text-[12px] text-[#6f5748]/78"
-              }
-              key={index}
-            >
-              ★
-            </span>
-          );
-        })}
-      </div>
+      <ShareCardStarRating
+        rating={rating}
+        className="mt-1"
+        starClassName="text-[12px]"
+      />
     </div>
   );
 }

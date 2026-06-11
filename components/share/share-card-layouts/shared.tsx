@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 
+import { ShareCardStarRating } from "@/components/share/share-card-rating";
+
 export type ShareCardLayout =
   | "poster"
   | "quote"
@@ -183,21 +185,17 @@ export function ShareCardMeta({
   watchMethodLabel,
   className = "",
 }: ShareCardMetaProps) {
-  const items = [
-    rating ? `별점 ${rating}` : null,
-    watchedDate,
-    watchMethodLabel,
-  ].filter((item): item is string => Boolean(item));
-
-  if (items.length === 0) {
+  if (!rating && !watchedDate && !watchMethodLabel) {
     return null;
   }
 
   return (
-    <div className={`flex flex-wrap gap-2 text-xs text-[#c9ad96] ${className}`}>
-      {items.map((item) => (
-        <span key={item}>{item}</span>
-      ))}
+    <div
+      className={`flex flex-wrap items-center gap-2 text-xs text-[#c9ad96] ${className}`}
+    >
+      <ShareCardStarRating rating={rating} starClassName="text-[13px]" />
+      {watchedDate ? <span>{watchedDate}</span> : null}
+      {watchMethodLabel ? <span>{watchMethodLabel}</span> : null}
     </div>
   );
 }
