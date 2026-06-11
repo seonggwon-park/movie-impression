@@ -59,6 +59,45 @@ function TicketMetaItem({
   );
 }
 
+function TicketRatingMetaItem({ rating }: { rating: number | null }) {
+  if (!rating) {
+    return null;
+  }
+
+  const filledStars = Math.max(0, Math.min(5, Math.round(rating)));
+
+  return (
+    <div className="min-w-0 rounded-md border border-[#fff7ea]/8 bg-[#0b0706]/32 px-2.5 py-2">
+      <p className="text-[8px] font-semibold tracking-[0.2em] text-[#d9a15f]/78">
+        RATING
+      </p>
+      <div
+        aria-label={`Rating ${filledStars} of 5`}
+        className="mt-1 flex items-center gap-0.5 leading-none"
+        role="img"
+      >
+        {Array.from({ length: 5 }, (_, index) => {
+          const isFilled = index < filledStars;
+
+          return (
+            <span
+              aria-hidden="true"
+              className={
+                isFilled
+                  ? "text-[12px] text-[#ffd36e] drop-shadow-[0_0_5px_rgba(255,184,91,0.34)]"
+                  : "text-[12px] text-[#6f5748]/78"
+              }
+              key={index}
+            >
+              ★
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function TicketLayoutTwo({
   movieTitle,
   releaseYear,
@@ -112,8 +151,9 @@ export function TicketLayoutTwo({
               {movieTitle}
             </h3>
             {releaseYear ? (
-              <p className="mt-1.5 text-xs font-semibold tracking-[0.14em] text-[#e7d4c0]">
-                {releaseYear}
+              <p className="mt-2 inline-flex w-fit items-center gap-2 rounded-full border border-[#d9a15f]/30 bg-[#100907]/55 px-2.5 py-1 text-[10px] font-semibold tracking-[0.16em] text-[#fff0d8]">
+                <span className="text-[#d9a15f]/78">YEAR</span>
+                <span>{releaseYear}</span>
               </p>
             ) : null}
           </div>
@@ -150,10 +190,7 @@ export function TicketLayoutTwo({
           {hasMeta ? (
             <section className="mt-3 grid shrink-0 grid-cols-3 gap-2">
               <TicketMetaItem label="PLACE" value={watchMethodLabel} />
-              <TicketMetaItem
-                label="RATING"
-                value={rating ? `별점 ${rating}` : null}
-              />
+              <TicketRatingMetaItem rating={rating} />
               <TicketMetaItem label="DATE" value={watchedDate} />
             </section>
           ) : null}
